@@ -1,0 +1,1 @@
+c:/Users/alexa/Documents/G14Control-r2/g14env/Scripts/activate.bat

@@ -1,17 +1,18 @@
 #boost modes: 0 = disabled, 2 = aggressive, 4 = efficient aggressive
-app_name: "G14 Control r2"  # Name of the app, you can customize that as you wish!
-start_on_boot: true    # Set to True to enable starting on boot which adds a windows registry entry
-notification_time: 5  # How long notifications will stay on the screen
-check_power_every: 10  # Seconds in between checks to get the battery/ac status
-default_gaming_plan: null   # Example: "Extreme"
-default_gaming_plan_games: ["Taskmgr.exe"]   # Example list: ["7zFM.exe", "notepad++.exe"]
+app_name: "G14 Control r2" # Name of the app, you can customize that as you wish!
+start_on_boot: false # Set to True to enable starting on boot which adds a windows registry entry
+notification_time: 15 # How long notifications will stay on the screen
+check_power_every: 10 # Seconds in between checks to get the battery/ac status
+default_gaming_plan: "GameTurbo" # Example: "Extreme"
+default_gaming_plan_games: ["Taskmgr.exe"] # Example list: ["7zFM.exe", "notepad++.exe"]
 default_starting_plan: "Silent (low-speed fan)"
 default_ac_plan: "Silent (low-speed fan)"
 default_dc_plan: "Silent (battery)"
 default_power_plan: "Balanced"
-alt_power_plan: "temp power plan"
+alt_power_plan: "GameTurbo"
 temp_dir: 'C:\temp\' # MUST END with "\"!!
-debug: false # true/false Don't change unless you know what you are doing!!!
+rog_key: null
+debug: true # true/false Don't change unless you know what you are doing!!!
 plans:
   - name: Silent (battery)
     plan: silent
@@ -39,9 +40,17 @@ plans:
     screen_hz: 120
   - name: Performance
     plan: performance
-    cpu_curve: null
-    gpu_curve: null
-    cpu_tdp: 35000
+    cpu_curve: "30c:0%,40c:5%,50c:8%,60c:10%,70c:31%,80c:49%,90c:56%,100c:56%"
+    gpu_curve: "30c:0%,40c:5%,50c:8%,60c:10%,70c:34%,80c:51%,90c:61%,100c:61%"
+    cpu_tdp: 38000
+    boost: 4
+    dgpu_enabled: true
+    screen_hz: 120
+  - name: Performance Plus
+    plan: turbo
+    cpu_curve: "30c:0%,40c:5%,50c:15%,60c:24%,70c:31%,80c:49%,90c:56%,100c:56%"
+    gpu_curve: "30c:0%,40c:5%,50c:15%,60c:24%,70c:34%,80c:51%,90c:61%,100c:61%"
+    cpu_tdp: 40000
     boost: 4
     dgpu_enabled: true
     screen_hz: 120
@@ -49,7 +58,7 @@ plans:
     plan: turbo
     cpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     gpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
-    cpu_tdp: 45000
+    cpu_tdp: 50000
     boost: 2
     dgpu_enabled: True
     screen_hz: 120

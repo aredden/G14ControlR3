@@ -13,36 +13,28 @@ import pystray
 import yaml
 from PIL import Image
 import resources
+from pywinusb import hid
+from pathlib import Path
+import pathlib
+
+from components.yaml_config import get_config
 
 
-class point:
-    def __init__(self):
-        self.x = 0
-        self.y = 0
-        self.val = 0
+def readData(data):
+    if data[1] == 56:
+        os.startfile(config['rog_key'])
+    return None
 
+
+run_gaming_thread = True
+run_power_thread = True
 
 showFlash = False
 
+G14dir: str
+config_loc: str
+
 current_boost_mode = 0
-
-power_thread: Thread
-gaming_thread: Thread
-
-run_power_thread = True
-run_gaming_thread = True
-
-
-def getDist(a, b):
-    return math.sqrt((a.y - b.y) * (a.y - b.y) + (a.x - b.x) * (a.x - b.x))
-
-
-def remap(source, ol, oh, nl, nh):
-    orr = oh - ol
-    nr = nh - nl
-    rat = nr / orr
-    return int((source - ol) * rat + nl)
-
 
 def get_power_plans():
     global dpp_GUID, app_GUID
@@ -87,6 +79,7 @@ def is_admin():
 
 def get_windows_theme():
     key = ConnectRegistry(None, HKEY_CURRENT_USER)  # By default, this is the local registry
+    # @ pyright-ignore
     sub_key = OpenKey(key, "Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")  # Let's open the subkey
     value = QueryValueEx(sub_key, "SystemUsesLightTheme")[
         0]  # Taskbar (where icon is displayed) uses the 'System' light theme key. Index 0 is the value, index 1 is the type of key
@@ -160,30 +153,40 @@ def gaming_check():  # Checks if user specified games/programs are running, and 
                 if plan['name'] == previous_plan:
                     apply_plan(plan)
                     break
-        time.sleep(10)  # Check for programs every 10 sec
+        time.sleep(config['check_power_every'])  # Check for programs every 10 sec
 
 
-def notify(message):
-    Thread(target=do_notify, args=(message,), daemon=True).start()
+def notify(message,toast_time=10):
+    Thread(target=do_notify, args=(message,toast_time), daemon=True).start()
 
 
-def do_notify(message):
+def do_notify(message,toast_time):
     global icon_app
     icon_app.notify(message)  # Display the provided argument as message
-    time.sleep(config['notification_time'])  # The message is displayed for the configured time. This is blocking.
+    time.sleep(toast_time)  # The message is displayed for the configured time. This is blocking.
     icon_app.remove_notification()  # Then, we will remove the notification
 
 
-# (["Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive"][int(get_boost()[2:])])
 def get_current():
-    global ac, current_plan, current_boost_mode
+    global ac, current_plan, current_boost_mode, config
+    plan_idx = next(i for i, e in enumerate(config['plans']) if e['name'] == current_plan)
+    tdp = str(config['plans'][plan_idx]['cpu_tdp'])
+
+    toast_time = config['notification_time']
+
+    boost_type = ["Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive"]
+    dGPUstate = (["Off", "On"][get_dgpu()])
+    batterystate = (["Battery", "AC"][bool(ac)])
+    autoswitching = (["Off", "On"][auto_power_switch])
+    boost_state = (boost_type[int(get_boost()[2:])])
+    refresh_state = (["60Hz", "120Hz"][get_screen()])
+
     notify(
-        "Plan: " + current_plan + "     dGPU: " + (["Off", "On"][get_dgpu()]) + "\n" +
-        "Boost: " + (["Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive"][
-            int(get_boost()[2:])]) + "\n" +
-        "Refresh Rate: " + (["60Hz", "120Hz"][get_screen()]) + "\n" +
-        "Power: " + (["Battery", "AC"][bool(ac)]) + "\nAuto Switching: " + (["Off", "On"][auto_power_switch]) + "\n"
-        # "Boost mode: " + str(current_boost_mode) + "\n" (["Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive"][int(current_boost_mode)])
+        "Plan: " + current_plan + "  dGPU: " + dGPUstate + "\n" +
+        "Boost: " + boost_state + "  Screen: " + refresh_state + "\n" +
+        "Power: " + batterystate + "  Auto Switching: " + autoswitching +"\n"+
+        "CPU TDP: " + tdp,
+        toast_time
     )  # Let's print the current values
 
 
@@ -266,8 +269,10 @@ def get_dgpu():
     )  # Let's get the dGPU status in the current power scheme
     output = pwr_settings.readlines()  # We save the output to parse it afterwards
     dgpu_ac = parse_boolean(output[-3].rsplit(": ")[1].strip("\n"))  # Convert to boolean for "On/Off"
-    return dgpu_ac
-
+    if dgpu_ac is None:
+        return False
+    else:
+        return True
 
 def set_dgpu(state, notification=True):
     global G14dir
@@ -319,7 +324,7 @@ def get_screen():  # Gets the current screen resolution
 def set_screen(refresh, notification=True):
     if check_screen():  # Before trying to change resolution, check that G14 is capable of 120Hz resolution
         if refresh is None:
-            set_screen(120)  # If screen refresh rate is null (not set), set to default refresh rate of 120Hz
+            set_screen(120)  # If screen refresh rate is null (not set), set to default refresh rate of 120Hz  
         check_screen_ref = str(os.path.join(config['temp_dir'] + 'ChangeScreenResolution.exe'))
         os.popen(
             check_screen_ref + " /d=0 /f=" + str(refresh)
@@ -372,7 +377,7 @@ def apply_plan(plan):
 
 
 def quit_app():
-    global run_power_thread, run_gaming_thread
+    global device, run_power_thread, run_gaming_thread
     if power_thread.is_alive():
         run_power_thread = False
         power_thread.join()
@@ -380,16 +385,13 @@ def quit_app():
         run_gaming_thread = False
         gaming_thread.join()
     icon_app.stop()  # This will destroy the the tray icon gracefully.
+
+    if device is not None:
+        device.close()
     try:
         sys.exit()
-    except SystemExit:
+    except SystemExit: 
         print('System Exit')
-
-
-def log_stats():
-    print("app guid: ", app_GUID)
-    print("G14Dir: ", G14dir)
-    print(" ")
 
 
 def create_menu():  # This will create the menu in the tray app
@@ -424,8 +426,8 @@ def create_menu():  # This will create the menu in the tray app
         *list(map(
                 (lambda plan: pystray.MenuItem(plan['name'], (lambda: (apply_plan(plan), deactivate_powerswitching())))),
                 config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit", quit_app)  # This to close the app, we will need it.
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Quit", quit_app)  # This to close the app, we will need it.
     )
     return menu
 
@@ -483,17 +485,19 @@ def startup_checks():
     # Adds registry entry if enabled in config, but not when in debug mode.
     # if not registry entry is already existing,
     # removes registry entry if registry exists but setting is disabled:
-    if config['start_on_boot'] and not config['debug'] and not registry_check():
+    reg_run_enabled = registry_check()
+
+    if config['start_on_boot'] and not config['debug'] and not reg_run_enabled:
         registry_add()
-    if not config['start_on_boot'] and not config['debug'] and registry_check():
+    if not config['start_on_boot'] and not config['debug'] and reg_run_enabled:
         registry_remove()
 
 
 if __name__ == "__main__":
-    global G14dir, config_loc
+    global device
     frame = []
-    get_app_path()
-    config = load_config()  # Make the config available to the whole script
+    config = get_config()  # Make the config available to the whole script
+    G14dir = str(Path(pathlib.os.curdir))
     dpp_GUID = None
     app_GUID = None
     get_power_plans()
@@ -518,6 +522,16 @@ if __name__ == "__main__":
             gaming_thread.start()
         default_gaming_plan = config['default_gaming_plan']
         default_gaming_plan_games = config['default_gaming_plan_games']
+        
+        if config['rog_key'] != None:
+            filter = hid.HidDeviceFilter(vendor_id = 0x0b05, product_id = 0x1866)
+            hid_device = filter.get_devices()
+            for i in hid_device:
+                if str(i).find("col01"):
+                    device = i
+                    device.open()
+                    device.set_raw_data_handler(readData)
+
         icon_app = pystray.Icon(config['app_name'])  # Initialize the icon app and set its name
         icon_app.title = config['app_name']  # This is the displayed name when hovering on the icon
         icon_app.icon = create_icon()  # This will set the icon itself (the graphical icon)
