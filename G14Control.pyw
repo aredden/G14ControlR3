@@ -15,7 +15,6 @@ import resources
 from pywinusb import hid
 from pathlib import Path
 
-from components.yaml_config import get_config
 
 
 def readData(data):
@@ -487,11 +486,12 @@ def startup_checks():
 
 
 if __name__ == "__main__":
-    global device, G14dir
+    device = None
     frame = []
-    config = get_config()  # Make the config available to the whole script
-    G14dir = str(Path(os.path.realpath(__file__)).parent)
-    print(G14dir)
+    G14dir = None
+    get_app_path()
+    config = load_config()  # Make the config available to the whole script
+    
     dpp_GUID = None
     app_GUID = None
     get_power_plans()
