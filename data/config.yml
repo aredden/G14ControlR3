@@ -1,15 +1,16 @@
 #boost modes: 0 = disabled, 2 = aggressive, 4 = efficient aggressive
 app_name: "G14 Control r2" # Name of the app, you can customize that as you wish!
-start_on_boot: false # Set to True to enable starting on boot which adds a windows registry entry
-notification_time: 15 # How long notifications will stay on the screen
+start_on_boot: true # Set to True to enable starting on boot which adds a windows registry entry
+notification_time: 2 # How long notifications will stay on the screen
+long_notification_time: 5
 check_power_every: 10 # Seconds in between checks to get the battery/ac status
-default_gaming_plan: "GameTurbo" # Example: "Extreme"
+default_gaming_plan: null # Example: "Extreme"
 default_gaming_plan_games: ["Taskmgr.exe"] # Example list: ["7zFM.exe", "notepad++.exe"]
 default_starting_plan: "Silent (low-speed fan)"
 default_ac_plan: "Silent (low-speed fan)"
 default_dc_plan: "Silent (battery)"
 default_power_plan: "Balanced"
-alt_power_plan: "GameTurbo"
+alt_power_plan: "High performance"
 temp_dir: 'C:\temp\' # MUST END with "\"!!
 rog_key: null
 debug: true # true/false Don't change unless you know what you are doing!!!

@@ -1,5 +1,4 @@
 import ctypes
-import math
 import os
 import re
 import subprocess
@@ -15,7 +14,6 @@ from PIL import Image
 import resources
 from pywinusb import hid
 from pathlib import Path
-import pathlib
 
 from components.yaml_config import get_config
 
@@ -31,7 +29,6 @@ run_power_thread = True
 
 showFlash = False
 
-G14dir: str
 config_loc: str
 
 current_boost_mode = 0
@@ -39,7 +36,9 @@ current_boost_mode = 0
 def get_power_plans():
     global dpp_GUID, app_GUID
     all_plans = subprocess.check_output(["powercfg", "/l"])
+    
     for i in str(all_plans).split('\\n'):
+        print(i)
         if i.find(config['default_power_plan']) != -1:
             dpp_GUID = i.split(' ')[3]
         if i.find(config['alt_power_plan']) != -1:
@@ -378,12 +377,6 @@ def apply_plan(plan):
 
 def quit_app():
     global device, run_power_thread, run_gaming_thread
-    if power_thread.is_alive():
-        run_power_thread = False
-        power_thread.join()
-    if gaming_thread.is_alive():
-        run_gaming_thread = False
-        gaming_thread.join()
     icon_app.stop()  # This will destroy the the tray icon gracefully.
 
     if device is not None:
@@ -494,10 +487,11 @@ def startup_checks():
 
 
 if __name__ == "__main__":
-    global device
+    global device, G14dir
     frame = []
     config = get_config()  # Make the config available to the whole script
-    G14dir = str(Path(pathlib.os.curdir))
+    G14dir = str(Path(os.path.realpath(__file__)).parent)
+    print(G14dir)
     dpp_GUID = None
     app_GUID = None
     get_power_plans()
