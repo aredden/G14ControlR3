@@ -9,8 +9,15 @@ default_gaming_plan_games: ["Taskmgr.exe"] # Example list: ["7zFM.exe", "notepad
 default_starting_plan: "Silent (low-speed fan)"
 default_ac_plan: "Silent (low-speed fan)"
 default_dc_plan: "Silent (battery)"
+windows_plans:
+  - "Balanced"
+  - "High performance"
+  - "Power saver"
+  - "ASUS Recommended"
 default_power_plan: "Balanced"
 alt_power_plan: "High performance"
+alt_power_plan_2: "Power saver"
+alt_power_plan_3: "ASUS Recommended"
 temp_dir: 'C:\temp\' # MUST END with "\"!!
 rog_key: null
 debug: true # true/false Don't change unless you know what you are doing!!!

@@ -221,3 +221,6 @@ fabric.properties
 .idea/G14Control.iml
 .idea/misc.xml
 .idea/
+.vs/slnx.sqlite
+.vs/
+random/
