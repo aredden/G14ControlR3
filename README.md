@@ -1,9 +1,7 @@
 # NOTE:
-This is an upstream fork of https://github.com/CappyT/g14control that has features and bug fixes that are not yet deemed stable for the official release, but that I have tested and are stable enough for my day-to-day use. There will be new EXEs bundled in the [releases](https://github.com/carverhaines/g14control/releases/latest) section that will be released between official releases by CappyT. For those that want the bleeding edge updates/testing branches (but testing and working).
+This is an upstream fork of https://github.com/thesacredmoocow/g14control-r2 which is an upstream fork of https://github.com/CappyT/g14control that has features and bug fixes that are not yet deemed stable for the official release, but that I have tested and are stable enough for my day-to-day use. There will be new EXEs bundled in the [releases](https://github.com/aredden/G14ControlR2/releases) section that will be released between official releases by me. For those that want the bleeding edge updates/testing branches (but testing and working).
 
-This is another newer version which I (thesacredmoocow) call G14Control r2, it incorporates animatrix control, windows power plan switching, and some other bits and bug fixes.
-
-## G14Control r2
+## G14ControlR2
 ## A simple tray app to control Asus Zephyrus G14 Power options
 
 #### Background:
@@ -20,14 +18,9 @@ Not yet fully. Upon turning off dGPU, the program updates windows power plan and
 #### What about Linux?
 While is possible to port this app to Linux, at the moment is engineered to work only on Windows.
 ### Installation
-Download the latest release zip from GitHub: https://github.com/thesacredmoocow/g14control-r2/releases
+Download the latest release zip from GitHub: https://github.com/aredden/G14ControlR2/releases
 
 Extract it to some permanent location such as C:\Users\[username]\G14Control
-
-(Optional): if you have animatrix, install the certificate inside the animatrix driver folder
-    then go into device manager and open Human Interface devices and check through all of the USB Input Devices
-    You can check which one is the animatrix by going to properties->details->hardware ids. The animatrix has VID:0x0b05 and PID:0x193b
-    update the that driver with the one provided. If it works then the device should now show up under Universal Serial Bus devices as "aniMe Matrix"
 
 Edit the config.yml with text editor as needed (see configuring below)
 
@@ -84,19 +77,17 @@ Under Plans, you can configure as many or few plans as you want. A plan includes
 The config.yaml has many examples of plans included by default. Modify at will.
 
 ### Important Note about ASUS ROG Armory Crate
-The ASUS ROG Armory Crate program will automatically change plans on wake, AC unplug, AC plugin. This will override G14's plan setting. Currently the best way around this is to uninstall Armory Crate and Armory Crate Service. This will completely resolve any conflicts.
+The ASUS ROG Armory Crate program will automatically change plans on wake, AC unplug, AC plugin. This will override G14's plan setting, but It is important to keep Armory Crate for the power profiles so that it's easier to fix fan bugs from occuring due to atrofac-cli.exe.
 
 ### Downloads:
 Check the release tab!
 
 
 ### How to build:
-Make sure python 3 and pip are installed. Then (as admin, in the source folder) run install.bat
+Make sure 32-bit python 3.8.x and pip are installed. Then (as admin, in the source folder) run install.bat
 
 The install directory is C:\G14Control, go there and modify the config.yml as needed. ensure that windows has at least two power plans.
 the default power plan will be selected 99% of the time, but will flip to the alternate plan for a bit to force a refresh of the power plan settings
-
-Install the drivers inside the animatrix driver folder if needed
 
 run G14control\G14Control.exe
 
@@ -131,5 +122,3 @@ You are very free to contribute with your code. I kinda suck at coding so any he
 - https://github.com/dedo1911
 - https://github.com/carverhaines (updated branch of original G14Control)
 - https://tools.taubenkorb.at/change-screen-resolution/ (change refresh rate)
-- https://github.com/felHR85/WinUsbPy (Animatrix lower level interface)
-- https://github.com/flukejones/rog-core (reverse engineered source code for AniMatrix protocol)
