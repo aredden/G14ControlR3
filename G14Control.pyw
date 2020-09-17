@@ -14,8 +14,17 @@ import yaml
 from PIL import Image
 import resources
 from pywinusb import hid
-from pathlib import Path
 from G14RunCommands import RunCommands
+
+
+main_cmds: RunCommands
+run_gaming_thread = True
+run_power_thread = True
+power_thread = None
+gaming_thread = None
+showFlash = False
+config_loc: str
+current_boost_mode = 0
 
 
 def readData(data):
@@ -23,19 +32,6 @@ def readData(data):
         os.startfile(config['rog_key'])
     return None
 
-main_cmds: RunCommands
-
-run_gaming_thread = True
-run_power_thread = True
-
-power_thread = None
-gaming_thread = None
-
-showFlash = False
-
-config_loc: str
-
-current_boost_mode = 0
 
 def get_power_plans():
     global dpp_GUID, app_GUID, app2_GUID, app3_GUID
@@ -52,7 +48,6 @@ def get_power_plans():
             app3_GUID = i.split(' ')[3]
 
 
-
 def get_windows_plans():
     global win_plans, config
     all_plans = subprocess.check_output(["powercfg", "/l"])
@@ -60,11 +55,6 @@ def get_windows_plans():
         for x in config['windows_plans']:
             if i.find(x) != -1:
                 win_plans.append(i.split(' ')[3])
-
-
-# def set_power_plan(GUID):
-#     print("setting power plan GUID to: ", GUID)
-#     subprocess.check_output(["powercfg", "/s", GUID])
 
 
 def get_app_path():
@@ -97,8 +87,8 @@ def is_admin():
 def get_windows_theme():
     key = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)  # By default, this is the local registry
     sub_key = winreg.OpenKey(key, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")  # Let's open the subkey
-    value = winreg.QueryValueEx(sub_key, "SystemUsesLightTheme")[
-        0]  # Taskbar (where icon is displayed) uses the 'System' light theme key. Index 0 is the value, index 1 is the type of key
+    # Taskbar (where icon is displayed) uses the 'System' light theme key. Index 0 is the value, index 1 is the type of key
+    value = winreg.QueryValueEx(sub_key, "SystemUsesLightTheme")[0]  
     return value  # 1 for light theme, 0 for dark theme
 
 
@@ -143,6 +133,7 @@ class power_check_thread(threading.Thread):
             print('Exception raise failure') 
 
 
+
 def activate_powerswitching():
     global auto_power_switch, run_power_thread, run_gaming_thread, power_thread, gaming_thread, config
     auto_power_switch = True    
@@ -164,10 +155,6 @@ def activate_powerswitching():
             gaming_thread.start()
 
 
-    # time.sleep(5)  # Plan change notifies first, so this needs to be on a delay to prevent simultaneous notifications
-    # notify("Auto power switching has been ENABLED")
-
-
 def deactivate_powerswitching():
     global auto_power_switch, run_gaming_thread, run_power_thread, power_thread, gaming_thread
     auto_power_switch = False
@@ -178,6 +165,8 @@ def deactivate_powerswitching():
         gaming_thread.raise_exception()
     # time.sleep(10)  # Plan change notifies first, so this needs to be on a delay to prevent simultaneous notifications
     # notify("Auto power switching has been DISABLED")
+
+
 
 class gaming_thread_impl(threading.Thread):
 
@@ -324,7 +313,7 @@ def create_menu():  # This will create the menu in the tray app
                 config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_app)  # This to close the app, we will need it.
-        )
+    )
     return menu
 
 
@@ -406,8 +395,6 @@ if __name__ == "__main__":
     get_power_plans()
     use_animatrix = False
     if is_admin() or config['debug']:  # If running as admin or in debug mode, launch program
-        # global dpp_GUID, app_GUID
-        # print("dpp_GUID: ", dpp_GUID)
         current_plan = config['default_starting_plan']
         default_ac_plan = config['default_ac_plan']
         default_dc_plan = config['default_dc_plan']
@@ -417,13 +404,10 @@ if __name__ == "__main__":
         resources.extract(config['temp_dir'])
         startup_checks()
         # A process in the background will check for AC, autoswitch plan if enabled and detected
-        # power_thread = Thread(target=power_check, daemon=True)
         power_thread = power_check_thread()
         power_thread.start()
 
         if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None:
-            # print(config['default_gaming_plan'], config['default_gaming_plan_games'])
-            # gaming_thread = Thread(target=gaming_check, daemon=True)
             gaming_thread = gaming_thread_impl('gaming-thread')
             gaming_thread.start()
         default_gaming_plan = config['default_gaming_plan']
