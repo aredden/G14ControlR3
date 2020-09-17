@@ -1,7 +1,7 @@
 # NOTE:
 This is an upstream fork of https://github.com/thesacredmoocow/g14control-r2 which is an upstream fork of https://github.com/CappyT/g14control that has features and bug fixes that are not yet deemed stable for the official release, but that I have tested and are stable enough for my day-to-day use. There will be new EXEs bundled in the [releases](https://github.com/aredden/G14ControlR2/releases) section that will be released between official releases by me. For those that want the bleeding edge updates/testing branches (but testing and working).
 
-## G14ControlR2
+## G14ControlR3
 ## A simple tray app to control Asus Zephyrus G14 Power options
 
 #### Background:
@@ -18,7 +18,7 @@ Not yet fully. Upon turning off dGPU, the program updates windows power plan and
 #### What about Linux?
 While is possible to port this app to Linux, at the moment is engineered to work only on Windows.
 ### Installation
-Download the latest release zip from GitHub: https://github.com/aredden/G14ControlR2/releases
+Download the latest release zip from GitHub: https://github.com/aredden/G14ControlR3/releases
 
 Extract it to some permanent location such as C:\Users\[username]\G14Control
 
@@ -28,7 +28,7 @@ Edit the config.yml with text editor as needed (see configuring below)
 All done in config.yaml within the root folder of the program. The program must be restarted for any changes to the config.yaml to take effect.
 
 #### `default_power_plan` and `alt_power_plan` MUST BE SET IN ORDER FOR POWER PLAN SETTINGS TO WORK (BOOST, dGPU toggling)
-by default, the default power plan is "balanced" and the alt_power plan is "temp power plan". you need to set these to the names of your windows power plans, ie high performance, battery saver, etc. 
+by default, the default power plan is "Balanced" and the alt_power plan is "High performance". You need to set these to the names of your **windows** power plans, ie GameTurbo, Battery saver, etc.
 
 `app_name:` can be customized, this is what the hover text displays over the icon and the windows notification title
 
@@ -92,6 +92,7 @@ the default power plan will be selected 99% of the time, but will flip to the al
 run G14control\G14Control.exe
 
 Optionally: create a task in task manager to have it start by itself
+
 ### Disclaimer
 Please note that this is an ALPHA version of this software, which is still undergoing testing and development. The software and all content found on GitHub related to it are provided “as is”. We do not give any warranties, whether express or implied, as to the safety, reliability, suitability or usability of the software or any of its content.
 
