@@ -29,9 +29,9 @@ class RunCommands():
     def get_boost(self):
         current_pwr = os.popen("powercfg /GETACTIVESCHEME")  # I know, it's ugly, but no other way to do that from py.
         pwr_guid = current_pwr.readlines()[0].rsplit(": ")[1].rsplit(" (")[0].lstrip("\n")  # Parse the GUID
-        pwr_settings = os.popen(
-            "powercfg /Q " + pwr_guid + " 54533251-82be-4824-96c1-47b60b740d00 be337238-0d82-4146-a960-4f3749d470c7"
-        )  # Let's get the boost option in the currently active power scheme
+        SUB_PROCESSOR = " 54533251-82be-4824-96c1-47b60b740d00"
+        PERFBOOSTMODE = " be337238-0d82-4146-a960-4f3749d470c7"
+        pwr_settings = os.popen("powercfg /Q " + pwr_guid + SUB_PROCESSOR + PERFBOOSTMODE)  # Let's get the boost option in the currently active power scheme
         output = pwr_settings.readlines()  # We save the output to parse it afterwards
         ac_boost = output[-3].rsplit(": ")[1].strip("\n")  # Parsing AC, assuming the DC is the same setting
         # battery_boost = parse_boolean(output[-2].rsplit(": ")[1].strip("\n"))  # currently unused, we will set both
@@ -57,7 +57,7 @@ class RunCommands():
     def set_boost(self, state, notification=True):
         current_boost_mode = state
         (dpp_GUID, app_GUID) = (self.app_GUID,self.dpp_GUID)
-        self.set_power_plan(dpp_GUID)
+        # self.set_power_plan(dpp_GUID)
         if state is True:  # Activate boost
             self.do_boost(state)
             if notification is True:
@@ -78,9 +78,9 @@ class RunCommands():
             self.do_boost(state)
             if notification is True:
                 self.notify("Boost set to Aggressive")  # Inform the user
-        self.set_power_plan(app_GUID)
+        # self.set_power_plan(app_GUID)
         time.sleep(0.25)
-        self.set_power_plan(dpp_GUID)
+        # self.set_power_plan(dpp_GUID)
 
 
     def get_dgpu(self):
@@ -164,22 +164,16 @@ class RunCommands():
     def set_atrofac(self, asus_plan, cpu_curve=None, gpu_curve=None):
         config = self.config
         atrofac = str(os.path.join(config['temp_dir'] + "atrofac-cli.exe"))
+        cmdargs = ""
         if cpu_curve is not None and gpu_curve is not None:
-            os.popen(
-                atrofac + " fan --cpu " + cpu_curve + " --gpu " + gpu_curve + " --plan " + asus_plan
-            )
+            cmdargs = atrofac + " fan --cpu " + cpu_curve + " --gpu " + gpu_curve + " --plan " + asus_plan
         elif cpu_curve is not None and gpu_curve is None:
-            os.popen(
-                atrofac + " fan --cpu " + cpu_curve + " --plan " + asus_plan
-            )
+            cmdargs = atrofac + " fan --cpu " + cpu_curve + " --plan " + asus_plan
         elif cpu_curve is None and gpu_curve is not None:
-            os.popen(
-                atrofac + " fan --gpu " + gpu_curve + " --plan " + asus_plan
-            )
+            cmdargs = atrofac + " fan --gpu " + gpu_curve + " --plan " + asus_plan
         else:
-            os.popen(
-                atrofac + " plan " + asus_plan
-            )
+            cmdargs = atrofac + " plan " + asus_plan
+        subprocess.Popen(cmdargs,shell=True,creationflags=subprocess.CREATE_NO_WINDOW)
 
 
     def set_ryzenadj(self, tdp):
@@ -188,14 +182,12 @@ class RunCommands():
         if tdp is None:
             pass
         else:
-            os.popen(
-                ryzenadj + " -a " + str(tdp) + " -b " + str(tdp)
-            )
+            subprocess.Popen(ryzenadj + " -a " + str(tdp) + " -b " + str(tdp),shell=True,creationflags=subprocess.CREATE_NO_WINDOW)
 
     
     def set_power_plan(self,GUID):
         print("setting power plan GUID to: ", GUID)
-        subprocess.check_output(["powercfg", "/s", GUID])
+        subprocess.check_output(["powercfg", "/s", GUID],shell=True,creationflags=subprocess.CREATE_NO_WINDOW)
 
 
     def apply_plan(self,plan):

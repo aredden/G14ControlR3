@@ -15,7 +15,8 @@ from PIL import Image
 import resources
 from pywinusb import hid
 from G14RunCommands import RunCommands
-
+from win10toast import ToastNotifier
+toaster = ToastNotifier()
 
 main_cmds: RunCommands
 run_gaming_thread = True
@@ -34,7 +35,7 @@ def readData(data):
 
 
 def get_power_plans():
-    global dpp_GUID, app_GUID, app2_GUID, app3_GUID
+    global dpp_GUID, app_GUID
     all_plans = subprocess.check_output(["powercfg", "/l"])
     for i in str(all_plans).split('\\n'):
         print(i)
@@ -42,20 +43,12 @@ def get_power_plans():
             dpp_GUID = i.split(' ')[3]
         if i.find(config['alt_power_plan']) != -1:
             app_GUID = i.split(' ')[3]
-        if i.find(config['alt_power_plan_2']) != -1:
-            app2_GUID = i.split(' ')[3]
-        if i.find(config['alt_power_plan_3']) != -1:
-            app3_GUID = i.split(' ')[3]
 
 
 def get_windows_plans():
     global win_plans, config
-    all_plans = subprocess.check_output(["powercfg", "/l"])
-    for i in str(all_plans).split('\\n'):
-        for x in config['windows_plans']:
-            if i.find(x) != -1:
-                win_plans.append(i.split(' ')[3])
-
+    windows_power_options = re.findall(r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
+    return windows_power_options
 
 def get_app_path():
     global G14dir
@@ -122,7 +115,7 @@ class power_check_thread(threading.Thread):
                                 break
                 time.sleep(10)
         else:
-            return
+            self.raise_exception()
 
     def raise_exception(self): 
         thread_id = self.ident
@@ -136,14 +129,15 @@ class power_check_thread(threading.Thread):
 
 def activate_powerswitching():
     global auto_power_switch, run_power_thread, run_gaming_thread, power_thread, gaming_thread, config
-    auto_power_switch = True    
+    auto_power_switch = True
     if power_thread is None:
         power_thread = power_check_thread()
         power_thread.start()
+        notify('Power switching has been activated.')
     elif not power_thread.is_alive():
         power_thread = power_check_thread()
         power_thread.start()
-
+        notify('Power switching has been activated.')
     if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None:
         # print(config['default_gaming_plan'], config['default_gaming_plan_games'])
         # gaming_thread = Thread(target=gaming_check, daemon=True)
@@ -155,7 +149,7 @@ def activate_powerswitching():
             gaming_thread.start()
 
 
-def deactivate_powerswitching():
+def deactivate_powerswitching(should_notify=True):
     global auto_power_switch, run_gaming_thread, run_power_thread, power_thread, gaming_thread
     auto_power_switch = False
 
@@ -163,8 +157,9 @@ def deactivate_powerswitching():
         power_thread.raise_exception()
     if gaming_thread is not None and gaming_thread.is_alive():
         gaming_thread.raise_exception()
-    # time.sleep(10)  # Plan change notifies first, so this needs to be on a delay to prevent simultaneous notifications
-    # notify("Auto power switching has been DISABLED")
+      # Plan change notifies first, so this needs to be on a delay to prevent simultaneous notifications
+    if(should_notify):
+        notify("Auto power switching has been disabled.", wait=1)
 
 
 
@@ -212,15 +207,18 @@ class gaming_thread_impl(threading.Thread):
             print('Exception raise failure') 
 
 
-def notify(message,toast_time=10):
-    Thread(target=do_notify, args=(message,toast_time), daemon=True).start()
+def notify(message,toast_time=5, wait=0):
+    Thread(target=do_notify, args=(message,toast_time,wait), daemon=True).start()
 
 
-def do_notify(message,toast_time):
+def do_notify(message,toast_time,wait):
     global icon_app
-    icon_app.notify(message)  # Display the provided argument as message
-    time.sleep(toast_time)  # The message is displayed for the configured time. This is blocking.
-    icon_app.remove_notification()  # Then, we will remove the notification
+    if wait > 0:
+        time.sleep(wait)
+    toaster.show_toast("G14ControlR3",msg=message,icon_path="res/icon.ico",duration=toast_time,threaded=True)
+    # icon_app.notify(message)  # Display the provided argument as message
+    # time.sleep(toast_time)  # The message is displayed for the configured time. This is blocking.
+    # icon_app.remove_notification()  # Then, we will remove the notification
 
 
 def get_current():
@@ -277,8 +275,16 @@ def quit_app():
         print('System Exit')
 
 
+def apply_plan_deactivate_switching(plan):
+    apply_plan(plan)
+    deactivate_powerswitching()
+
+
 def create_menu():  # This will create the menu in the tray app
     global dpp_GUID, app_GUID, app2_GUID, app3_GUID, main_cmds
+    plan = None
+    winplan = None
+    windows_plans = get_windows_plans()
     menu = pystray.Menu(
         pystray.MenuItem("Current Config", get_current, default=True),
         # The default setting will make the action run on left click
@@ -296,11 +302,14 @@ def create_menu():  # This will create the menu in the tray app
             pystray.MenuItem("60Hz", lambda: main_cmds.set_screen(60)),
         ), visible=main_cmds.check_screen()),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Windows Power Plan", pystray.Menu(
-            pystray.MenuItem(config['default_power_plan'], lambda: main_cmds.set_power_plan(dpp_GUID)),
-            pystray.MenuItem(config['alt_power_plan'], lambda: main_cmds.set_power_plan(app_GUID)),
-            pystray.MenuItem(config['alt_power_plan_2'], lambda: main_cmds.set_power_plan(app2_GUID)),
-            pystray.MenuItem(config['alt_power_plan_3'], lambda: main_cmds.set_power_plan(app3_GUID)),
+        # pystray.MenuItem("Windows Power Plan", pystray.Menu(
+        #     pystray.MenuItem(config['default_power_plan'], lambda: main_cmds.set_power_plan(dpp_GUID)),
+        #     pystray.MenuItem(config['alt_power_plan'], lambda: main_cmds.set_power_plan(app_GUID)),
+        #     pystray.MenuItem(config['alt_power_plan_2'], lambda: main_cmds.set_power_plan(app2_GUID)),
+        #     pystray.MenuItem(config['alt_power_plan_3'], lambda: main_cmds.set_power_plan(app3_GUID)),
+        # )),
+        pystray.MenuItem("Windows Power Options", pystray.Menu(
+            *list(map(lambda winplan: pystray.MenuItem(winplan[1],lambda: main_cmds.set_power_plan(winplan[0])),windows_plans))
         )),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Disable Auto Power Switching", deactivate_powerswitching),
@@ -309,7 +318,7 @@ def create_menu():  # This will create the menu in the tray app
         pystray.Menu.SEPARATOR,
         # I have no idea of what I am doing, fo real, man.y
         # pystray.MenuItem('Stuff',*list(map((lambda win_plan: ))))
-        *list(map(lambda plan: pystray.MenuItem(plan['name'],lambda: (apply_plan(plan), deactivate_powerswitching())),
+        *list(map(lambda plan: pystray.MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan)),
                 config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_app)  # This to close the app, we will need it.

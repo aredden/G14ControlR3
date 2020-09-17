@@ -17,6 +17,10 @@ class PowerCheckThread(threading.Thread):
         self.main_cmds = main_cmds
 
 
+    def update_info(self, current_plan):
+        if current_plan is not None:
+            self.current_plan = current_plan
+
     def run(self):
         current_plan = self.current_plan
         default_ac_plan = self.default_ac_plan
