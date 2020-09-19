@@ -10,15 +10,19 @@ from threading import Thread
 import winreg
 import psutil
 import pystray
+from pystray._base import Icon, Menu, MenuItem
 import yaml
 from PIL import Image
 import resources
 from pywinusb import hid
 from G14RunCommands import RunCommands
 from win10toast import ToastNotifier
+
 toaster = ToastNotifier()
 
 main_cmds: RunCommands
+
+enabled:dict
 run_gaming_thread = True
 run_power_thread = True
 power_thread = None
@@ -26,6 +30,8 @@ gaming_thread = None
 showFlash = False
 config_loc: str
 current_boost_mode = 0
+current_windows_plan = "Balanced"
+active_plan_map: dict
 
 
 def readData(data):
@@ -44,10 +50,11 @@ def get_power_plans():
         if i.find(config['alt_power_plan']) != -1:
             app_GUID = i.split(' ')[3]
 
-
 def get_windows_plans():
-    global win_plans, config
+    global win_plans, config, active_plan_map
     windows_power_options = re.findall(r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
+    active_plan_map = {x[1]:False for x in windows_power_options}
+    active_plan_map[current_windows_plan] = True
     return windows_power_options
 
 def get_app_path():
@@ -162,7 +169,6 @@ def deactivate_powerswitching(should_notify=True):
         notify("Auto power switching has been disabled.", wait=1)
 
 
-
 class gaming_thread_impl(threading.Thread):
 
     def __init__(self, name):
@@ -245,19 +251,20 @@ def get_current():
 
 
 def apply_plan(plan):
-    global current_plan, main_cmds
+    global current_plan, main_cmds, icon_app
     current_plan = plan['name']
     main_cmds.set_atrofac(plan['plan'], plan['cpu_curve'], plan['gpu_curve'])
     main_cmds.set_boost(plan['boost'], False)
     main_cmds.set_dgpu(plan['dgpu_enabled'], False)
     main_cmds.set_screen(plan['screen_hz'], False)
     main_cmds.set_ryzenadj(plan['cpu_tdp'])
+
     notify("Applied plan " + plan['name'])
 
 
 def quit_app():
     global device, run_power_thread, run_gaming_thread, power_thread, gaming_thread
-    icon_app.stop()  # This will destroy the the tray icon gracefully.
+      # This will destroy the the tray icon gracefully.
     run_power_thread = False
     run_gaming_thread = False
     if power_thread is not None and power_thread.is_alive():
@@ -270,6 +277,7 @@ def quit_app():
     if device is not None:
         device.close()
     try:
+        icon_app.stop()
         sys.exit()
     except SystemExit: 
         print('System Exit')
@@ -280,48 +288,58 @@ def apply_plan_deactivate_switching(plan):
     deactivate_powerswitching()
 
 
+def set_windows_plan(plan):
+    global active_plan_map, current_windows_plan
+    active_plan_map[current_windows_plan]=False
+    current_windows_plan = plan[1]
+    active_plan_map[current_windows_plan]=True
+    main_cmds.set_power_plan(plan[0])
+
+def power_options_menu():
+    global current_windows_plan, active_plan_map,windows_plans
+    winplan = None
+    # option = lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),checked=active_plan_map[winplan[1]]))
+    return list(map(lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),checked=lambda icn:active_plan_map[winplan[1]])),windows_plans))
+
+
 def create_menu():  # This will create the menu in the tray app
-    global dpp_GUID, app_GUID, app2_GUID, app3_GUID, main_cmds
+    global dpp_GUID, app_GUID, main_cmds, auto_power_switch, current_plan
     plan = None
     winplan = None
-    windows_plans = get_windows_plans()
-    menu = pystray.Menu(
-        pystray.MenuItem("Current Config", get_current, default=True),
+    opts_menu = power_options_menu()
+    menu = Menu(
+        MenuItem("Current Config", get_current, default=True),
         # The default setting will make the action run on left click
-        pystray.MenuItem("CPU Boost", pystray.Menu(  # The "Boost" submenu
-            pystray.MenuItem("Boost OFF", lambda: main_cmds.set_boost(0)),
-            pystray.MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4)),
-            pystray.MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2)),
+        MenuItem("CPU Boost", 
+            Menu(  # The "Boost" submenu
+                MenuItem("Boost OFF", lambda: main_cmds.set_boost(0),checked=lambda icn: True if int(main_cmds.get_boost()[2:])==0 else False),
+                MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4),lambda icn: True if int(main_cmds.get_boost()[2:])==4 else False),
+                MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2),lambda icn: True if int(main_cmds.get_boost()[2:])==2 else False),
         )),
-        pystray.MenuItem("dGPU", pystray.Menu(
-            pystray.MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True)),
-            pystray.MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False)),
+        MenuItem("dGPU", 
+            Menu(
+                MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True), checked=lambda icn: (True if main_cmds.get_dgpu() else False)),
+                MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False), checked=lambda icn: (False if main_cmds.get_dgpu() else True)),
         )),
-        pystray.MenuItem("Screen Refresh", pystray.Menu(
-            pystray.MenuItem("120Hz", lambda: main_cmds.set_screen(120)),
-            pystray.MenuItem("60Hz", lambda: main_cmds.set_screen(60)),
+        MenuItem("Screen Refresh", 
+            Menu(
+                MenuItem("120Hz", lambda: main_cmds.set_screen(120),checked=lambda icn: True if main_cmds.get_screen()==1 else False),
+                MenuItem("60Hz", lambda: main_cmds.set_screen(60),lambda icn: True if main_cmds.get_screen()==0 else False),
         ), visible=main_cmds.check_screen()),
-        pystray.Menu.SEPARATOR,
-        # pystray.MenuItem("Windows Power Plan", pystray.Menu(
-        #     pystray.MenuItem(config['default_power_plan'], lambda: main_cmds.set_power_plan(dpp_GUID)),
-        #     pystray.MenuItem(config['alt_power_plan'], lambda: main_cmds.set_power_plan(app_GUID)),
-        #     pystray.MenuItem(config['alt_power_plan_2'], lambda: main_cmds.set_power_plan(app2_GUID)),
-        #     pystray.MenuItem(config['alt_power_plan_3'], lambda: main_cmds.set_power_plan(app3_GUID)),
-        # )),
-        pystray.MenuItem("Windows Power Options", pystray.Menu(
-            *list(map(lambda winplan: pystray.MenuItem(winplan[1],lambda: main_cmds.set_power_plan(winplan[0])),windows_plans))
-        )),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Disable Auto Power Switching", deactivate_powerswitching),
-        pystray.MenuItem("Enable Auto Power Switching", activate_powerswitching),
-        # pystray.MenuItem("Log Stats", log_stats),
-        pystray.Menu.SEPARATOR,
+        Menu.SEPARATOR,
+        MenuItem("Windows Power Options",
+            Menu(*opts_menu)),
+        Menu.SEPARATOR,
+        MenuItem("Disable Auto Power Switching", deactivate_powerswitching, checked=lambda icn: False if auto_power_switch else True),
+        MenuItem("Enable Auto Power Switching", activate_powerswitching, checked= lambda icn: auto_power_switch),
+        Menu.SEPARATOR,
         # I have no idea of what I am doing, fo real, man.y
-        # pystray.MenuItem('Stuff',*list(map((lambda win_plan: ))))
-        *list(map(lambda plan: pystray.MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan)),
-                config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Quit", quit_app)  # This to close the app, we will need it.
+        # MenuItem('Stuff',*list(map((lambda win_plan: ))))
+        *list(map(lambda plan: 
+                        MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan),checked=lambda icn: True if current_plan==plan['name'] else False),
+                  config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
+        Menu.SEPARATOR,
+        MenuItem("Quit", quit_app)  # This to close the app, we will need it.
     )
     return menu
 
@@ -399,9 +417,9 @@ if __name__ == "__main__":
     win_plans = []
     dpp_GUID = None
     app_GUID = None
-    app2_GUID = None
-    app3_GUID = None
     get_power_plans()
+    windows_plans = get_windows_plans()
+    current_windows_plan = config['default_power_plan']
     use_animatrix = False
     if is_admin() or config['debug']:  # If running as admin or in debug mode, launch program
         current_plan = config['default_starting_plan']
@@ -413,6 +431,7 @@ if __name__ == "__main__":
         resources.extract(config['temp_dir'])
         startup_checks()
         # A process in the background will check for AC, autoswitch plan if enabled and detected
+        main_cmds = RunCommands(config,G14dir,app_GUID,dpp_GUID,notify) #Instantiate command line tasks runners in G14RunCommands.py
         power_thread = power_check_thread()
         power_thread.start()
 
@@ -421,7 +440,8 @@ if __name__ == "__main__":
             gaming_thread.start()
         default_gaming_plan = config['default_gaming_plan']
         default_gaming_plan_games = config['default_gaming_plan_games']
-        
+
+
         if config['rog_key'] != None:
             filter = hid.HidDeviceFilter(vendor_id = 0x0b05, product_id = 0x1866)
             hid_device = filter.get_devices()
@@ -431,12 +451,11 @@ if __name__ == "__main__":
                     device.open()
                     device.set_raw_data_handler(readData)
 
-        main_cmds = RunCommands(config,G14dir,app_GUID,dpp_GUID,notify) #Instantiate command line tasks runners in G14RunCommands.py
 
-        icon_app = pystray.Icon(config['app_name'])  # Initialize the icon app and set its name
+        icon_app: Icon = pystray.Icon(config['app_name'])  # Initialize the icon app and set its name
         icon_app.title = config['app_name']  # This is the displayed name when hovering on the icon
         icon_app.icon = create_icon()  # This will set the icon itself (the graphical icon)
-        icon_app.menu = create_menu()  # This will create the menu
+        icon_app.menu = create_menu()# This will create the menu
        
         icon_app.run()  # This runs the icon. Is single threaded, blocking.
     else:  # Re-run the program with admin rights

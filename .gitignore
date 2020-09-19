@@ -227,3 +227,4 @@ fabric.properties
 .vs/
 random/
 starto.ps1
+.vscode/launch.json
