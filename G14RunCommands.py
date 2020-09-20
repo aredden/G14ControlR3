@@ -6,13 +6,20 @@ import re
 
 class RunCommands():
         
-    def __init__(self,config, G14dir, app_GUID, dpp_GUID, notify):
+    def __init__(self,config, G14dir, app_GUID, dpp_GUID, notify, windows_plans, active_plan_map):
         self.config = config
         self.G14dir = G14dir
         self.app_GUID = app_GUID
         self.dpp_GUID = dpp_GUID
         self.notify = notify
+        self.windows_plans = windows_plans
+        self.active_plan_map = active_plan_map
+        self.windows_plan_map = {name:guid for guid,name in iter(windows_plans)}
 
+    def set_windows_and_active_plans(self,winplns,activeplns):
+        self.active_plan_map = activeplns
+        self.windows_plans = winplns
+        
 
         # noinspection PyBroadException
     def parse_boolean(self, parse_string):  # Small utility to convert windows HEX format to a boolean.
@@ -23,7 +30,6 @@ class RunCommands():
                 return True
         except Exception:
             return None  # Just in case™
-
 
 
     def get_boost(self):
@@ -54,10 +60,22 @@ class RunCommands():
         print(SET_AC_VAL)
         print(SET_DC_VAL)
 
+
     def set_boost(self, state, notification=True):
         current_boost_mode = state
-        (dpp_GUID, app_GUID) = (self.app_GUID,self.dpp_GUID)
-        # self.set_power_plan(dpp_GUID)
+        win_plans = self.windows_plans
+        active_plans = self.active_plan_map
+        windows_plan_map = self.windows_plan_map
+        CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME") 
+        pwr_guid = CURRENT_SCHEME.readlines()[0].rsplit(": ")[1].rsplit(" (")[0].lstrip("\n").replace(" ","")  # Parse the GUID
+        switch_to = list({val for key,val in windows_plan_map.items() if val!=pwr_guid})[0]
+        switch_to_guid = win_plans
+        print(switch_to, "switch to guid")
+        print(pwr_guid, "power guid")
+        print(self.active_plan_map)
+        self.set_power_plan(switch_to)
+        time.sleep(.25)
+        self.set_power_plan(pwr_guid)
         if state is True:  # Activate boost
             self.do_boost(state)
             if notification is True:
@@ -78,9 +96,9 @@ class RunCommands():
             self.do_boost(state)
             if notification is True:
                 self.notify("Boost set to Aggressive")  # Inform the user
-        # self.set_power_plan(app_GUID)
+        self.set_power_plan(switch_to)
         time.sleep(0.25)
-        # self.set_power_plan(dpp_GUID)
+        self.set_power_plan(pwr_guid)
 
 
     def get_dgpu(self):
@@ -95,6 +113,7 @@ class RunCommands():
             return False
         else:
             return True
+
 
     def set_dgpu(self, state, notification=True):
         config = self.config

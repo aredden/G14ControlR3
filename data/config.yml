@@ -48,7 +48,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance
-    plan: windows
+    plan: performance
     cpu_curve: "30c:0%,40c:5%,50c:8%,60c:10%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:5%,50c:8%,60c:10%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 38000
@@ -56,7 +56,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance Plus
-    plan: windows
+    plan: performance
     cpu_curve: "30c:0%,40c:5%,50c:15%,60c:24%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:5%,50c:15%,60c:24%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 40000
@@ -64,7 +64,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Extreme
-    plan: windows
+    plan: turbo
     cpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     gpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     cpu_tdp: 45000

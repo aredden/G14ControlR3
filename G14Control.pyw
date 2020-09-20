@@ -31,7 +31,7 @@ showFlash = False
 config_loc: str
 current_boost_mode = 0
 current_windows_plan = "Balanced"
-active_plan_map: dict
+active_plan_map: dict = {}
 
 
 def readData(data):
@@ -51,11 +51,26 @@ def get_power_plans():
             app_GUID = i.split(' ')[3]
 
 def get_windows_plans():
-    global win_plans, config, active_plan_map
+    global win_plans, config, active_plan_map, current_windows_plan
     windows_power_options = re.findall(r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
     active_plan_map = {x[1]:False for x in windows_power_options}
     active_plan_map[current_windows_plan] = True
     return windows_power_options
+
+"""
+Cannot be run before @get_windows_plans()
+"""
+def get_active_plan_map():
+    global windows_plans, active_plan_map
+    try:
+        active_plan_map["Balanced"]
+        return active_plan_map
+    except Exception: 
+        active_plan_map = {x[1]:False for x in windows_plans}
+        active_plan_map[current_windows_plan] = True
+        return active_plan_map
+
+
 
 def get_app_path():
     global G14dir
@@ -253,12 +268,12 @@ def get_current():
 def apply_plan(plan):
     global current_plan, main_cmds, icon_app
     current_plan = plan['name']
+    main_cmds.set_windows_and_active_plans(windows_plans,active_plan_map)
     main_cmds.set_atrofac(plan['plan'], plan['cpu_curve'], plan['gpu_curve'])
     main_cmds.set_boost(plan['boost'], False)
     main_cmds.set_dgpu(plan['dgpu_enabled'], False)
     main_cmds.set_screen(plan['screen_hz'], False)
     main_cmds.set_ryzenadj(plan['cpu_tdp'])
-
     notify("Applied plan " + plan['name'])
 
 
@@ -284,15 +299,18 @@ def quit_app():
 
 
 def apply_plan_deactivate_switching(plan):
-    apply_plan(plan)
+    global current_plan
+    main_cmds.apply_plan(plan)
     deactivate_powerswitching()
 
 
 def set_windows_plan(plan):
-    global active_plan_map, current_windows_plan
+    global active_plan_map, current_windows_plan, windows_plans
+    print(plan)
     active_plan_map[current_windows_plan]=False
     current_windows_plan = plan[1]
     active_plan_map[current_windows_plan]=True
+    main_cmds.set_windows_and_active_plans(windows_plans,active_plan_map)
     main_cmds.set_power_plan(plan[0])
 
 def power_options_menu():
@@ -409,6 +427,7 @@ def startup_checks():
 
 
 if __name__ == "__main__":
+
     device = None
     frame = []
     G14dir = None
@@ -430,8 +449,10 @@ if __name__ == "__main__":
         ac = psutil.sensors_battery().power_plugged  # Set AC/battery status on start
         resources.extract(config['temp_dir'])
         startup_checks()
+        
+        active_plan_map = get_active_plan_map()
         # A process in the background will check for AC, autoswitch plan if enabled and detected
-        main_cmds = RunCommands(config,G14dir,app_GUID,dpp_GUID,notify) #Instantiate command line tasks runners in G14RunCommands.py
+        main_cmds = RunCommands(config,G14dir,app_GUID,dpp_GUID,notify,windows_plans,active_plan_map) #Instantiate command line tasks runners in G14RunCommands.py
         power_thread = power_check_thread()
         power_thread.start()
 
