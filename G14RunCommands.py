@@ -3,6 +3,7 @@ import os
 import subprocess
 import time
 import re
+from subprocess import STDOUT
 
 class RunCommands():
         
@@ -69,7 +70,6 @@ class RunCommands():
         CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME") 
         pwr_guid = CURRENT_SCHEME.readlines()[0].rsplit(": ")[1].rsplit(" (")[0].lstrip("\n").replace(" ","")  # Parse the GUID
         switch_to = list({val for key,val in windows_plan_map.items() if val!=pwr_guid})[0]
-        switch_to_guid = win_plans
         print(switch_to, "switch to guid")
         print(pwr_guid, "power guid")
         print(self.active_plan_map)
@@ -206,8 +206,9 @@ class RunCommands():
     
     def set_power_plan(self,GUID):
         print("setting power plan GUID to: ", GUID)
-        subprocess.check_output(["powercfg", "/s", GUID],shell=True,creationflags=subprocess.CREATE_NO_WINDOW)
-
+        result = subprocess.check_output(["powercfg", "/s", GUID],shell=True,creationflags=subprocess.CREATE_NO_WINDOW,stderr=STDOUT)
+        if self.config['debug']:
+            print('Set power result (good if nothing): ', result)
 
     def apply_plan(self,plan):
         current_plan = plan['name']

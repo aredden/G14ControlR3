@@ -300,6 +300,7 @@ def quit_app():
 
 def apply_plan_deactivate_switching(plan):
     global current_plan
+    current_plan = plan['name']
     main_cmds.apply_plan(plan)
     deactivate_powerswitching()
 
