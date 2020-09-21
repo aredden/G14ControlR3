@@ -51,7 +51,7 @@ def get_power_plans():
             app_GUID = i.split(' ')[3]
 
 def get_windows_plans():
-    global win_plans, config, active_plan_map, current_windows_plan
+    global config, active_plan_map, current_windows_plan
     windows_power_options = re.findall(r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
     active_plan_map = {x[1]:False for x in windows_power_options}
     active_plan_map[current_windows_plan] = True
@@ -318,7 +318,8 @@ def power_options_menu():
     global current_windows_plan, active_plan_map,windows_plans
     winplan = None
     # option = lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),checked=active_plan_map[winplan[1]]))
-    return list(map(lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),checked=lambda icn:active_plan_map[winplan[1]])),windows_plans))
+    return list(map(lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),
+                                                 checked = lambda icn:active_plan_map[winplan[1]])),windows_plans))
 
 
 def create_menu():  # This will create the menu in the tray app
@@ -331,31 +332,41 @@ def create_menu():  # This will create the menu in the tray app
         # The default setting will make the action run on left click
         MenuItem("CPU Boost", 
             Menu(  # The "Boost" submenu
-                MenuItem("Boost OFF", lambda: main_cmds.set_boost(0),checked=lambda icn: True if int(main_cmds.get_boost()[2:])==0 else False),
-                MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4),lambda icn: True if int(main_cmds.get_boost()[2:])==4 else False),
-                MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2),lambda icn: True if int(main_cmds.get_boost()[2:])==2 else False),
+                MenuItem("Boost OFF", lambda: main_cmds.set_boost(0),
+                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==0 else False),
+                MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4),
+                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==4 else False),
+                MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2),
+                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==2 else False),
         )),
         MenuItem("dGPU", 
             Menu(
-                MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True), checked=lambda icn: (True if main_cmds.get_dgpu() else False)),
-                MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False), checked=lambda icn: (False if main_cmds.get_dgpu() else True)),
+                MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True), 
+                             checked = lambda icn: (True if main_cmds.get_dgpu() else False)),
+                MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False), 
+                             checked = lambda icn: (False if main_cmds.get_dgpu() else True)),
         )),
         MenuItem("Screen Refresh", 
             Menu(
-                MenuItem("120Hz", lambda: main_cmds.set_screen(120),checked=lambda icn: True if main_cmds.get_screen()==1 else False),
-                MenuItem("60Hz", lambda: main_cmds.set_screen(60),lambda icn: True if main_cmds.get_screen()==0 else False),
+                MenuItem("120Hz", lambda: main_cmds.set_screen(120),
+                             checked = lambda icn: True if main_cmds.get_screen()==1 else False),
+                MenuItem("60Hz", lambda: main_cmds.set_screen(60), 
+                             checked = lambda icn: True if main_cmds.get_screen()==0 else False),
         ), visible=main_cmds.check_screen()),
         Menu.SEPARATOR,
         MenuItem("Windows Power Options",
             Menu(*opts_menu)),
         Menu.SEPARATOR,
-        MenuItem("Disable Auto Power Switching", deactivate_powerswitching, checked=lambda icn: False if auto_power_switch else True),
-        MenuItem("Enable Auto Power Switching", activate_powerswitching, checked= lambda icn: auto_power_switch),
+        MenuItem("Disable Auto Power Switching", deactivate_powerswitching, 
+                             checked = lambda icn: False if auto_power_switch else True),
+        MenuItem("Enable Auto Power Switching", activate_powerswitching, 
+                             checked = lambda icn: auto_power_switch),
         Menu.SEPARATOR,
         # I have no idea of what I am doing, fo real, man.y
         # MenuItem('Stuff',*list(map((lambda win_plan: ))))
         *list(map(lambda plan: 
-                        MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan),checked=lambda icn: True if current_plan==plan['name'] else False),
+                        MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan),
+                                      checked = lambda icn: True if current_plan==plan['name'] else False),
                   config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
         Menu.SEPARATOR,
         MenuItem("Quit", quit_app)  # This to close the app, we will need it.
@@ -434,13 +445,11 @@ if __name__ == "__main__":
     G14dir = None
     get_app_path()
     config = load_config()  # Make the config available to the whole script
-    win_plans = []
     dpp_GUID = None
     app_GUID = None
     get_power_plans()
     windows_plans = get_windows_plans()
     current_windows_plan = config['default_power_plan']
-    use_animatrix = False
     if is_admin() or config['debug']:  # If running as admin or in debug mode, launch program
         current_plan = config['default_starting_plan']
         default_ac_plan = config['default_ac_plan']
