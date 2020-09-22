@@ -51,3 +51,7 @@ class PowerCheckThread(threading.Thread):
         if res > 1:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(self.ident, 0)
             print('Exception raise failure')
+
+
+fans = psutil.sensors_fans()
+print(fans.values())

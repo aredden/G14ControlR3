@@ -228,3 +228,5 @@ fabric.properties
 random/
 starto.ps1
 .vscode/launch.json
+config.DAT
+testing files/brightnesstest.py

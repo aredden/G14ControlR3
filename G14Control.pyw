@@ -18,11 +18,13 @@ from pywinusb import hid
 from G14RunCommands import RunCommands
 from win10toast import ToastNotifier
 
+import pickle
+from io import FileIO
+
 toaster = ToastNotifier()
 
 main_cmds: RunCommands
 
-enabled:dict
 run_gaming_thread = True
 run_power_thread = True
 power_thread = None
@@ -50,39 +52,42 @@ def get_power_plans():
         if i.find(config['alt_power_plan']) != -1:
             app_GUID = i.split(' ')[3]
 
+
 def get_windows_plans():
     global config, active_plan_map, current_windows_plan
-    windows_power_options = re.findall(r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
-    active_plan_map = {x[1]:False for x in windows_power_options}
+    windows_power_options = re.findall(
+        r"([0-9a-f\-]{36}) *\((.*)\) *\*?\n", os.popen("powercfg /l").read())
+    active_plan_map = {x[1]: False for x in windows_power_options}
     active_plan_map[current_windows_plan] = True
     return windows_power_options
 
-"""
-Cannot be run before @get_windows_plans()
-"""
+
 def get_active_plan_map():
+    """
+    Cannot be run before @get_windows_plans()
+    """
     global windows_plans, active_plan_map
     try:
         active_plan_map["Balanced"]
         return active_plan_map
-    except Exception: 
-        active_plan_map = {x[1]:False for x in windows_plans}
+    except Exception:
+        active_plan_map = {x[1]: False for x in windows_plans}
         active_plan_map[current_windows_plan] = True
         return active_plan_map
-
 
 
 def get_app_path():
     global G14dir
     G14Dir = ""
-    if getattr(sys, 'frozen', False):  # Sets the path accordingly whether it is a python script or a frozen .exe
+    # Sets the path accordingly whether it is a python script or a frozen .exe
+    if getattr(sys, 'frozen', False):
         G14dir = os.path.dirname(os.path.realpath(sys.executable))
     elif __file__:
         G14dir = os.path.dirname(os.path.realpath(__file__))
 
 
-# noinspection PyBroadException
-def parse_boolean(parse_string):  # Small utility to convert windows HEX format to a boolean.
+# Small utility to convert windows HEX format to a boolean.
+def parse_boolean(parse_string):
     try:
         if parse_string == "0x00000000":  # We will consider this as False
             return False
@@ -94,16 +99,20 @@ def parse_boolean(parse_string):  # Small utility to convert windows HEX format 
 
 def is_admin():
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin()  # Returns true if the user launched the app as admin
+        # Returns true if the user launched the app as admin
+        return ctypes.windll.shell32.IsUserAnAdmin()
     except OSError or WindowsError:
         return False
 
 
 def get_windows_theme():
-    key = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)  # By default, this is the local registry
-    sub_key = winreg.OpenKey(key, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")  # Let's open the subkey
+    # By default, this is the local registry
+    key = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+    # Let's open the subkey
+    sub_key = winreg.OpenKey(
+        key, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
     # Taskbar (where icon is displayed) uses the 'System' light theme key. Index 0 is the value, index 1 is the type of key
-    value = winreg.QueryValueEx(sub_key, "SystemUsesLightTheme")[0]  
+    value = winreg.QueryValueEx(sub_key, "SystemUsesLightTheme")[0]
     return value  # 1 for light theme, 0 for dark theme
 
 
@@ -112,41 +121,6 @@ def create_icon():
         return Image.open(os.path.join(config['temp_dir'], 'icon_light.png'))
     else:
         return Image.open(os.path.join(config['temp_dir'], 'icon_dark.png'))
-
-
-class power_check_thread(threading.Thread):
-
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        global auto_power_switch, ac, current_plan, default_ac_plan, default_dc_plan, config
-        if auto_power_switch:  # Only run while loop on startup if auto_power_switch is On (True)
-            while run_power_thread:
-                if auto_power_switch:  # Check to user hasn't disabled auto_power_switch (i.e. by manually switching plans)
-                    ac = psutil.sensors_battery().power_plugged  # Get the current AC power status
-                    if ac and current_plan != default_ac_plan:  # If on AC power, and not on the default_ac_plan, switch to that plan
-                        for plan in config['plans']:
-                            if plan['name'] == default_ac_plan:
-                                apply_plan(plan)
-                                break
-                    if not ac and current_plan != default_dc_plan:  # If on DC power, and not on the default_dc_plan, switch to that plan
-                        for plan in config['plans']:
-                            if plan['name'] == default_dc_plan:
-                                apply_plan(plan)
-                                break
-                time.sleep(10)
-        else:
-            self.raise_exception()
-
-    def raise_exception(self): 
-        thread_id = self.ident
-        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 
-              ctypes.py_object(SystemExit)) 
-        if res > 1: 
-            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0) 
-            print('Exception raise failure') 
-
 
 
 def activate_powerswitching():
@@ -161,8 +135,6 @@ def activate_powerswitching():
         power_thread.start()
         notify('Power switching has been activated.')
     if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None:
-        # print(config['default_gaming_plan'], config['default_gaming_plan_games'])
-        # gaming_thread = Thread(target=gaming_check, daemon=True)
         if gaming_thread is None:
             gaming_thread = gaming_thread_impl('gaming-thread')
             gaming_thread.start()
@@ -184,12 +156,49 @@ def deactivate_powerswitching(should_notify=True):
         notify("Auto power switching has been disabled.", wait=1)
 
 
+class power_check_thread(threading.Thread):
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+    def run(self):
+        global auto_power_switch, ac, current_plan, default_ac_plan, default_dc_plan, config
+        # Only run while loop on startup if auto_power_switch is On (True)
+        if auto_power_switch:
+            while run_power_thread:
+                # Check to user hasn't disabled auto_power_switch (i.e. by manually switching plans)
+                if auto_power_switch:
+                    ac = psutil.sensors_battery().power_plugged  # Get the current AC power status
+                    # If on AC power, and not on the default_ac_plan, switch to that plan
+                    if ac and current_plan != default_ac_plan:
+                        for plan in config['plans']:
+                            if plan['name'] == default_ac_plan:
+                                apply_plan(plan)
+                                break
+                    # If on DC power, and not on the default_dc_plan, switch to that plan
+                    if not ac and current_plan != default_dc_plan:
+                        for plan in config['plans']:
+                            if plan['name'] == default_dc_plan:
+                                apply_plan(plan)
+                                break
+                time.sleep(10)
+        else:
+            self.raise_exception()
+
+    def raise_exception(self):
+        thread_id = self.ident
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
+                                                         ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print('Exception raise failure')
+
+
 class gaming_thread_impl(threading.Thread):
 
     def __init__(self, name):
         self.name = name
         threading.Thread.__init__(self)
-
 
     def run(self):  # Checks if user specified games/programs are running, and sw`itches to user defined plan, then switches back once closed
         global default_gaming_plan_games
@@ -199,57 +208,61 @@ class gaming_thread_impl(threading.Thread):
             output = os.popen('wmic process get description, processid').read()
             process = output.split("\n")
             processes = set(i.split(" ")[0] for i in process)
-            targets = set(default_gaming_plan_games)  # List of user defined processes
+            # List of user defined processes
+            targets = set(default_gaming_plan_games)
             if processes & targets:  # Compare 2 lists, if ANY overlap, set game_running to true
                 game_running = True
             else:
                 game_running = False
-            if game_running and current_plan != default_gaming_plan:  # If game is running and not on the desired gaming plan, switch to that plan
+            # If game is running and not on the desired gaming plan, switch to that plan
+            if game_running and current_plan != default_gaming_plan:
                 previous_plan = current_plan
                 for plan in config['plans']:
                     if plan['name'] == default_gaming_plan:
                         apply_plan(plan)
                         notify(plan['name'])
                         break
-            if not game_running and previous_plan is not None and previous_plan != current_plan:  # If game is no longer running, and not on previous plan already (if set), then switch back to previous plan
+            # If game is no longer running, and not on previous plan already (if set), then switch back to previous plan
+            if not game_running and previous_plan is not None and previous_plan != current_plan:
                 for plan in config['plans']:
                     if plan['name'] == previous_plan:
                         apply_plan(plan)
                         break
-            time.sleep(config['check_power_every'])  # Check for programs every 10 sec
+            # Check for programs every 10 sec
+            time.sleep(config['check_power_every'])
 
-
-    def raise_exception(self): 
+    def raise_exception(self):
         thread_id = self.ident
-        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 
-              ctypes.py_object(SystemExit)) 
-        if res > 1: 
-            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0) 
-            print('Exception raise failure') 
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
+                                                         ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print('Exception raise failure')
 
 
-def notify(message,toast_time=5, wait=0):
-    Thread(target=do_notify, args=(message,toast_time,wait), daemon=True).start()
+def notify(message, toast_time=5, wait=0):
+    Thread(target=do_notify, args=(
+        message, toast_time, wait), daemon=True).start()
 
 
-def do_notify(message,toast_time,wait):
+def do_notify(message, toast_time, wait):
     global icon_app
     if wait > 0:
         time.sleep(wait)
-    toaster.show_toast("G14ControlR3",msg=message,icon_path="res/icon.ico",duration=toast_time,threaded=True)
-    # icon_app.notify(message)  # Display the provided argument as message
-    # time.sleep(toast_time)  # The message is displayed for the configured time. This is blocking.
-    # icon_app.remove_notification()  # Then, we will remove the notification
+    toaster.show_toast("G14ControlR3", msg=message,
+                       icon_path="res/icon.ico", duration=toast_time, threaded=True)
 
 
 def get_current():
     global ac, current_plan, current_boost_mode, config, main_cmds
-    plan_idx = next(i for i, e in enumerate(config['plans']) if e['name'] == current_plan)
+    plan_idx = next(i for i, e in enumerate(
+        config['plans']) if e['name'] == current_plan)
     tdp = str(config['plans'][plan_idx]['cpu_tdp'])
 
     toast_time = config['notification_time']
 
-    boost_type = ["Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive"]
+    boost_type = ["Disabled", "Enabled", "Aggressive",
+                  "Efficient Enabled", "Efficient Aggressive"]
     dGPUstate = (["Off", "On"][main_cmds.get_dgpu()])
     batterystate = (["Battery", "AC"][bool(ac)])
     autoswitching = (["Off", "On"][auto_power_switch])
@@ -259,7 +272,7 @@ def get_current():
     notify(
         "Plan: " + current_plan + "  dGPU: " + dGPUstate + "\n" +
         "Boost: " + boost_state + "  Screen: " + refresh_state + "\n" +
-        "Power: " + batterystate + "  Auto Switching: " + autoswitching +"\n"+
+        "Power: " + batterystate + "  Auto Switching: " + autoswitching + "\n" +
         "CPU TDP: " + tdp,
         toast_time
     )  # Let's print the current values
@@ -268,7 +281,7 @@ def get_current():
 def apply_plan(plan):
     global current_plan, main_cmds, icon_app
     current_plan = plan['name']
-    main_cmds.set_windows_and_active_plans(windows_plans,active_plan_map)
+    main_cmds.set_windows_and_active_plans(windows_plans, active_plan_map)
     main_cmds.set_atrofac(plan['plan'], plan['cpu_curve'], plan['gpu_curve'])
     main_cmds.set_boost(plan['boost'], False)
     main_cmds.set_dgpu(plan['dgpu_enabled'], False)
@@ -279,7 +292,11 @@ def apply_plan(plan):
 
 def quit_app():
     global device, run_power_thread, run_gaming_thread, power_thread, gaming_thread
-      # This will destroy the the tray icon gracefully.
+    # This will destroy the the tray icon gracefully.
+    with FileIO('./config.DAT', mode='w') as fileio:
+        pickle.dump(config, fileio)
+        fileio.close()
+
     run_power_thread = False
     run_gaming_thread = False
     if power_thread is not None and power_thread.is_alive():
@@ -294,7 +311,7 @@ def quit_app():
     try:
         icon_app.stop()
         sys.exit()
-    except SystemExit: 
+    except SystemExit:
         print('System Exit')
 
 
@@ -308,18 +325,19 @@ def apply_plan_deactivate_switching(plan):
 def set_windows_plan(plan):
     global active_plan_map, current_windows_plan, windows_plans
     print(plan)
-    active_plan_map[current_windows_plan]=False
+    active_plan_map[current_windows_plan] = False
     current_windows_plan = plan[1]
-    active_plan_map[current_windows_plan]=True
-    main_cmds.set_windows_and_active_plans(windows_plans,active_plan_map)
+    active_plan_map[current_windows_plan] = True
+    main_cmds.set_windows_and_active_plans(windows_plans, active_plan_map)
     main_cmds.set_power_plan(plan[0])
 
+
 def power_options_menu():
-    global current_windows_plan, active_plan_map,windows_plans
+    global current_windows_plan, active_plan_map, windows_plans
     winplan = None
     # option = lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),checked=active_plan_map[winplan[1]]))
-    return list(map(lambda winplan: (MenuItem(winplan[1],lambda: set_windows_plan(winplan),
-                                                 checked = lambda icn:active_plan_map[winplan[1]])),windows_plans))
+    return list(map(lambda winplan: (MenuItem(winplan[1], lambda: set_windows_plan(winplan),
+                                              checked=lambda menu_itm: active_plan_map[winplan[1]])), windows_plans))
 
 
 def create_menu():  # This will create the menu in the tray app
@@ -330,43 +348,43 @@ def create_menu():  # This will create the menu in the tray app
     menu = Menu(
         MenuItem("Current Config", get_current, default=True),
         # The default setting will make the action run on left click
-        MenuItem("CPU Boost", 
-            Menu(  # The "Boost" submenu
-                MenuItem("Boost OFF", lambda: main_cmds.set_boost(0),
-                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==0 else False),
-                MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4),
-                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==4 else False),
-                MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2),
-                              checked = lambda icn: True if int(main_cmds.get_boost()[2:])==2 else False),
-        )),
-        MenuItem("dGPU", 
-            Menu(
-                MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True), 
-                             checked = lambda icn: (True if main_cmds.get_dgpu() else False)),
-                MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False), 
-                             checked = lambda icn: (False if main_cmds.get_dgpu() else True)),
-        )),
-        MenuItem("Screen Refresh", 
-            Menu(
-                MenuItem("120Hz", lambda: main_cmds.set_screen(120),
-                             checked = lambda icn: True if main_cmds.get_screen()==1 else False),
-                MenuItem("60Hz", lambda: main_cmds.set_screen(60), 
-                             checked = lambda icn: True if main_cmds.get_screen()==0 else False),
-        ), visible=main_cmds.check_screen()),
+        MenuItem("CPU Boost",
+                 Menu(  # The "Boost" submenu
+                     MenuItem("Boost OFF", lambda: main_cmds.set_boost(0),
+                              checked=lambda menu_itm: True if int(main_cmds.get_boost()[2:]) == 0 else False),
+                     MenuItem("Boost Efficient Aggressive", lambda: main_cmds.set_boost(4),
+                              checked=lambda menu_itm: True if int(main_cmds.get_boost()[2:]) == 4 else False),
+                     MenuItem("Boost Aggressive", lambda: main_cmds.set_boost(2),
+                              checked=lambda menu_itm: True if int(main_cmds.get_boost()[2:]) == 2 else False),
+                 )),
+        MenuItem("dGPU",
+                 Menu(
+                     MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True),
+                              checked=lambda menu_itm: (True if main_cmds.get_dgpu() else False)),
+                     MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False),
+                              checked=lambda menu_itm: (False if main_cmds.get_dgpu() else True)),
+                 )),
+        MenuItem("Screen Refresh",
+                 Menu(
+                     MenuItem("120Hz", lambda: main_cmds.set_screen(120),
+                              checked=lambda menu_itm: True if main_cmds.get_screen() == 1 else False),
+                     MenuItem("60Hz", lambda: main_cmds.set_screen(60),
+                              checked=lambda menu_itm: True if main_cmds.get_screen() == 0 else False),
+                 ), visible=main_cmds.check_screen()),
         Menu.SEPARATOR,
         MenuItem("Windows Power Options",
-            Menu(*opts_menu)),
+                 Menu(*opts_menu)),
         Menu.SEPARATOR,
-        MenuItem("Disable Auto Power Switching", deactivate_powerswitching, 
-                             checked = lambda icn: False if auto_power_switch else True),
-        MenuItem("Enable Auto Power Switching", activate_powerswitching, 
-                             checked = lambda icn: auto_power_switch),
+        MenuItem("Disable Auto Power Switching", deactivate_powerswitching,
+                 checked=lambda menu_itm: False if auto_power_switch else True),
+        MenuItem("Enable Auto Power Switching", activate_powerswitching,
+                 checked=lambda menu_itm: auto_power_switch),
         Menu.SEPARATOR,
         # I have no idea of what I am doing, fo real, man.y
         # MenuItem('Stuff',*list(map((lambda win_plan: ))))
-        *list(map(lambda plan: 
-                        MenuItem(plan['name'],lambda: apply_plan_deactivate_switching(plan),
-                                      checked = lambda icn: True if current_plan==plan['name'] else False),
+        *list(map(lambda plan:
+                  MenuItem(plan['name'], lambda: apply_plan_deactivate_switching(plan),
+                           checked=lambda menu_itm: True if current_plan == plan['name'] else False),
                   config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
         Menu.SEPARATOR,
         MenuItem("Quit", quit_app)  # This to close the app, we will need it.
@@ -376,10 +394,13 @@ def create_menu():  # This will create the menu in the tray app
 
 def load_config():  # Small function to load the config and return it after parsing
     global G14dir, config_loc
-    if getattr(sys, 'frozen', False):  # Sets the path accordingly whether it is a python script or a frozen .exe
-        config_loc = os.path.join(str(G14dir), "config.yml")  # Set absolute path for config.yaml
+    # Sets the path accordingly whether it is a python script or a frozen .exe
+    if getattr(sys, 'frozen', False):
+        # Set absolute path for config.yaml
+        config_loc = os.path.join(str(G14dir), "config.yml")
     elif __file__:
-        config_loc = os.path.join(str(G14dir), "data/config.yml")  # Set absolute path for config.yaml
+        # Set absolute path for config.yaml
+        config_loc = os.path.join(str(G14dir), "data/config.yml")
 
     with open(config_loc, 'r') as config_file:
         return yaml.load(config_file, Loader=yaml.FullLoader)
@@ -407,7 +428,8 @@ def registry_add():  # Adds G14Control.exe to the windows registry to start on b
     G14exe = "G14Control.exe"
     G14dir = str(G14dir)
     G14fileloc = os.path.join(G14dir, G14exe)
-    G14Key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_SET_VALUE)
+    G14Key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            registry_key_loc, 0, winreg.KEY_SET_VALUE)
     winreg.SetValueEx(G14Key, "G14Control", 1, winreg.REG_SZ, G14fileloc)
 
 
@@ -416,7 +438,8 @@ def registry_remove():  # Removes G14Control.exe from the windows registry
     G14exe = "G14Control.exe"
     G14dir = str(G14dir)
     G14fileloc = os.path.join(G14dir, G14exe)
-    G14Key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_ALL_ACCESS)
+    G14Key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            registry_key_loc, 0, winreg.KEY_ALL_ACCESS)
     winreg.DeleteValue(G14Key, 'G14Control')
 
 
@@ -450,19 +473,23 @@ if __name__ == "__main__":
     get_power_plans()
     windows_plans = get_windows_plans()
     current_windows_plan = config['default_power_plan']
-    if is_admin() or config['debug']:  # If running as admin or in debug mode, launch program
+    # If running as admin or in debug mode, launch program
+    if is_admin() or config['debug']:
         current_plan = config['default_starting_plan']
         default_ac_plan = config['default_ac_plan']
         default_dc_plan = config['default_dc_plan']
         registry_key_loc = r'Software\Microsoft\Windows\CurrentVersion\Run'
-        auto_power_switch = False  # Set variable before startup_checks decides what the value should be
+        # Set variable before startup_checks decides what the value should be
+        auto_power_switch = False
         ac = psutil.sensors_battery().power_plugged  # Set AC/battery status on start
         resources.extract(config['temp_dir'])
         startup_checks()
-        
+
         active_plan_map = get_active_plan_map()
         # A process in the background will check for AC, autoswitch plan if enabled and detected
-        main_cmds = RunCommands(config,G14dir,app_GUID,dpp_GUID,notify,windows_plans,active_plan_map) #Instantiate command line tasks runners in G14RunCommands.py
+        # Instantiate command line tasks runners in G14RunCommands.py
+        main_cmds = RunCommands(config, G14dir, app_GUID,
+                                dpp_GUID, notify, windows_plans, active_plan_map)
         power_thread = power_check_thread()
         power_thread.start()
 
@@ -472,9 +499,8 @@ if __name__ == "__main__":
         default_gaming_plan = config['default_gaming_plan']
         default_gaming_plan_games = config['default_gaming_plan_games']
 
-
         if config['rog_key'] != None:
-            filter = hid.HidDeviceFilter(vendor_id = 0x0b05, product_id = 0x1866)
+            filter = hid.HidDeviceFilter(vendor_id=0x0b05, product_id=0x1866)
             hid_device = filter.get_devices()
             for i in hid_device:
                 if str(i).find("col01"):
@@ -482,12 +508,14 @@ if __name__ == "__main__":
                     device.open()
                     device.set_raw_data_handler(readData)
 
-
-        icon_app: Icon = pystray.Icon(config['app_name'])  # Initialize the icon app and set its name
-        icon_app.title = config['app_name']  # This is the displayed name when hovering on the icon
+        # Initialize the icon app and set its name
+        icon_app: Icon = pystray.Icon(config['app_name'])
+        # This is the displayed name when hovering on the icon
+        icon_app.title = config['app_name']
         icon_app.icon = create_icon()  # This will set the icon itself (the graphical icon)
-        icon_app.menu = create_menu()# This will create the menu
-       
+        icon_app.menu = create_menu()  # This will create the menu
+
         icon_app.run()  # This runs the icon. Is single threaded, blocking.
     else:  # Re-run the program with admin rights
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, " ".join(sys.argv), None, 1)

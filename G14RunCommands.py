@@ -22,7 +22,6 @@ class RunCommands():
     def set_windows_and_active_plans(self, winplns, activeplns):
         self.active_plan_map = activeplns
         self.windows_plans = winplns
-
         # noinspection PyBroadException
 
     # Small utility to convert windows HEX format to a boolean.
@@ -70,25 +69,16 @@ class RunCommands():
                          creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.Popen(SET_DC_VAL, shell=True,
                          creationflags=subprocess.CREATE_NO_WINDOW)
-        print(SET_AC_VAL)
-        print(SET_DC_VAL)
+        self.finalize_powercfg_chg(pwr_guid)
+        if self.config['debug']:
+            print(SET_AC_VAL)
+            print(SET_DC_VAL)
 
     def set_boost(self, state, notification=True):
-        current_boost_mode = state
-        win_plans = self.windows_plans
-        active_plans = self.active_plan_map
-        windows_plan_map = self.windows_plan_map
         CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME")
         pwr_guid = CURRENT_SCHEME.readlines()[0].rsplit(": ")[1].rsplit(
             " (")[0].lstrip("\n").replace(" ", "")  # Parse the GUID
-        switch_to = list(
-            {val for key, val in windows_plan_map.items() if val != pwr_guid})[0]
-        print(switch_to, "switch to guid")
         print(pwr_guid, "power guid")
-        print(self.active_plan_map)
-        self.set_power_plan(switch_to)
-        time.sleep(.25)
-        self.set_power_plan(pwr_guid)
         if state is True:  # Activate boost
             self.do_boost(state)
             if notification is True:
@@ -104,15 +94,11 @@ class RunCommands():
         elif state == 4:
             self.do_boost(state)
             if notification is True:
-                # Inform the user
-                self.notify("Boost set to Efficient Aggressive")
+                self.notify("Boost: Efficient Aggressive")  # Inform the user
         elif state == 2:
             self.do_boost(state)
             if notification is True:
-                self.notify("Boost set to Aggressive")  # Inform the user
-        self.set_power_plan(switch_to)
-        time.sleep(0.25)
-        self.set_power_plan(pwr_guid)
+                self.notify("Boost: Aggressive")  # Inform the user
 
     def get_dgpu(self):
         # I know, it's ugly, but no other way to do that from py.
@@ -132,7 +118,6 @@ class RunCommands():
             return True
 
     def set_dgpu(self, state, notification=True):
-        config = self.config
         G14dir = self.G14dir
         # Just to be safe, let's get the current power scheme
         current_pwr = os.popen("powercfg /GETACTIVESCHEME")
@@ -234,6 +219,11 @@ class RunCommands():
             ["powercfg", "/s", GUID], shell=True, creationflags=subprocess.CREATE_NO_WINDOW, stderr=STDOUT)
         if self.config['debug']:
             print('Set power result (good if nothing): ', result)
+
+    def finalize_powercfg_chg(self, GUID):
+        time.sleep(.25)
+        subprocess.Popen(['powercfg', '-setactive', GUID], shell=True,
+                         creationflags=subprocess.CREATE_NO_WINDOW, stderr=STDOUT)
 
     def apply_plan(self, plan):
         current_plan = plan['name']
