@@ -1,6 +1,6 @@
 
 import os
-import subprocess
+import subprocess as sp
 import time
 import re
 from subprocess import STDOUT
@@ -65,20 +65,26 @@ class RunCommands():
             set_ac, pwr_guid, SUB_PROCESSOR, PERFBOOSTMODE, str(state))
         SET_DC_VAL = "{0} {1} {2} {3} {4}".format(
             set_dc, pwr_guid, SUB_PROCESSOR, PERFBOOSTMODE, str(state))
-        subprocess.Popen(SET_AC_VAL, shell=True,
-                         creationflags=subprocess.CREATE_NO_WINDOW)
-        subprocess.Popen(SET_DC_VAL, shell=True,
-                         creationflags=subprocess.CREATE_NO_WINDOW)
-        self.finalize_powercfg_chg(pwr_guid)
+        sp.Popen(SET_AC_VAL, shell=True,
+                 creationflags=sp.CREATE_NO_WINDOW)
+        sp.Popen(SET_DC_VAL, shell=True,
+                 creationflags=sp.CREATE_NO_WINDOW)
         if self.config['debug']:
             print(SET_AC_VAL)
             print(SET_DC_VAL)
 
     def set_boost(self, state, notification=True):
+        windows_plan_map = self.windows_plan_map
         CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME")
         pwr_guid = CURRENT_SCHEME.readlines()[0].rsplit(": ")[1].rsplit(
             " (")[0].lstrip("\n").replace(" ", "")  # Parse the GUID
+        switch_to = list(
+            {val for key, val in windows_plan_map.items() if val != pwr_guid})[0]
+        print(switch_to, "switch to guid")
         print(pwr_guid, "power guid")
+        self.set_power_plan(switch_to)
+        time.sleep(.25)
+        self.set_power_plan(pwr_guid)
         if state is True:  # Activate boost
             self.do_boost(state)
             if notification is True:
@@ -94,55 +100,58 @@ class RunCommands():
         elif state == 4:
             self.do_boost(state)
             if notification is True:
-                self.notify("Boost: Efficient Aggressive")  # Inform the user
+                # Inform the user
+                self.notify("Boost Efficient Aggressive")
         elif state == 2:
             self.do_boost(state)
             if notification is True:
-                self.notify("Boost: Aggressive")  # Inform the user
+                self.notify("Boost Aggressive")  # Inform the user
+        self.set_power_plan(switch_to)
+        time.sleep(0.25)
+        self.set_power_plan(pwr_guid)
 
     def get_dgpu(self):
-        # I know, it's ugly, but no other way to do that from py.
+        # Get active windows power scheme
         current_pwr = os.popen("powercfg /GETACTIVESCHEME")
-        pwr_guid = current_pwr.readlines()[0].rsplit(
-            ": ")[1].rsplit(" (")[0].lstrip("\n")  # Parse the GUID
+        CURRENT_GUID = re.findall(
+            r"[0-9a-fA-F\-]{36}", current_pwr.read())[0]  # Parse the GUID
+        SW_DYNAMC_GRAPHICS = "e276e160-7cb0-43c6-b20b-73f5dce39954"
+        GLOBAL_SETTINGS = "a1662ab2-9d34-4e53-ba8b-2639b9e20857"
         pwr_settings = os.popen(
-            "powercfg /Q " + pwr_guid +
-            " e276e160-7cb0-43c6-b20b-73f5dce39954 a1662ab2-9d34-4e53-ba8b-2639b9e20857"
-        )  # Let's get the dGPU status in the current power scheme
+            " ".join(['powercfg', "/q", CURRENT_GUID,
+                      SW_DYNAMC_GRAPHICS, GLOBAL_SETTINGS]))  # Let's get the dGPU status in the current power scheme
         output = pwr_settings.readlines()  # We save the output to parse it afterwards
         # Convert to boolean for "On/Off"
         dgpu_ac = self.parse_boolean(output[-3].rsplit(": ")[1].strip("\n"))
         if dgpu_ac is None:
             return False
         else:
-            return True
+            return dgpu_ac
 
     def set_dgpu(self, state, notification=True):
         G14dir = self.G14dir
         # Just to be safe, let's get the current power scheme
         current_pwr = os.popen("powercfg /GETACTIVESCHEME")
-        pwr_guid = current_pwr.readlines()[0].rsplit(
-            ": ")[1].rsplit(" (")[0].lstrip("\n")  # Parse the GUID
+        CURRENT_GUID = re.findall(r"[0-9a-fA-F\-]{36}", current_pwr.read())[0]
+        SW_DYNAMC_GRAPHICS = "e276e160-7cb0-43c6-b20b-73f5dce39954"
+        GLOBAL_SETTINGS = "a1662ab2-9d34-4e53-ba8b-2639b9e20857"
+        AC = '/setacvalueindex'
+        DC = '/setdcvalueindex'
+
+        def _set_dgpu(SETTING, AC_DC): return os.popen(
+            " ".join(['powercfg', AC_DC, CURRENT_GUID, SW_DYNAMC_GRAPHICS,
+                      GLOBAL_SETTINGS, str(SETTING)]))
+
         if state is True:  # Activate dGPU
-            os.popen(
-                "powercfg /setacvalueindex " + pwr_guid +
-                " e276e160-7cb0-43c6-b20b-73f5dce39954 a1662ab2-9d34-4e53-ba8b-2639b9e20857 2"
-            )
-            os.popen(
-                "powercfg /setdcvalueindex " + pwr_guid +
-                " e276e160-7cb0-43c6-b20b-73f5dce39954 a1662ab2-9d34-4e53-ba8b-2639b9e20857 2"
-            )
+            _set_dgpu(2, AC)
+            _set_dgpu(2, DC)
+            time.sleep(.25)
             if notification is True:
                 self.notify("dGPU ENABLED")  # Inform the user
         elif state is False:  # Deactivate dGPU
-            os.popen(
-                "powercfg /setacvalueindex " + pwr_guid +
-                " e276e160-7cb0-43c6-b20b-73f5dce39954 a1662ab2-9d34-4e53-ba8b-2639b9e20857 0"
-            )
-            os.popen(
-                "powercfg /setdcvalueindex " + pwr_guid +
-                " e276e160-7cb0-43c6-b20b-73f5dce39954 a1662ab2-9d34-4e53-ba8b-2639b9e20857 0"
-            )
+            _set_dgpu(0, AC)
+            _set_dgpu(0, DC)
+            time.sleep(.25)
             os.system("\"" + str(G14dir) + "\\restartGPUcmd.bat" + "\"")
             if notification is True:
                 self.notify("dGPU DISABLED")  # Inform the user
@@ -194,15 +203,17 @@ class RunCommands():
         cmdargs = ""
         if cpu_curve is not None and gpu_curve is not None:
             cmdargs = atrofac + " fan --cpu " + cpu_curve + \
-                " --gpu " + gpu_curve + " --plan " + asus_plan
+                " --gpu " + gpu_curve
         elif cpu_curve is not None and gpu_curve is None:
-            cmdargs = atrofac + " fan --cpu " + cpu_curve + " --plan " + asus_plan
+            cmdargs = atrofac + " fan --cpu " + cpu_curve
         elif cpu_curve is None and gpu_curve is not None:
-            cmdargs = atrofac + " fan --gpu " + gpu_curve + " --plan " + asus_plan
+            cmdargs = atrofac + " fan --gpu " + gpu_curve
         else:
-            cmdargs = atrofac + " plan " + asus_plan
-        subprocess.Popen(cmdargs, shell=True,
-                         creationflags=subprocess.CREATE_NO_WINDOW)
+            cmdargs = ""
+        result = sp.check_output(cmdargs, shell=True,
+                                 creationflags=sp.CREATE_NO_WINDOW)
+        if self.config['debug']:
+            print(result)
 
     def set_ryzenadj(self, tdp):
         config = self.config
@@ -210,20 +221,22 @@ class RunCommands():
         if tdp is None:
             pass
         else:
-            subprocess.Popen(ryzenadj + " -a " + str(tdp) + " -b " + str(tdp),
-                             shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            result = sp.check_output(ryzenadj + " -a " + str(tdp) + " -b " + str(tdp),
+                                     shell=True, creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
+            if self.config['debug']:
+                print(result)
 
     def set_power_plan(self, GUID):
         print("setting power plan GUID to: ", GUID)
-        result = subprocess.check_output(
-            ["powercfg", "/s", GUID], shell=True, creationflags=subprocess.CREATE_NO_WINDOW, stderr=STDOUT)
+        result = sp.check_output(
+            ["powercfg", "/s", GUID], shell=True, creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
         if self.config['debug']:
-            print('Set power result (good if nothing): ', result)
+            print('Set power result (good if just b\'\'): ', result)
 
     def finalize_powercfg_chg(self, GUID):
         time.sleep(.25)
-        subprocess.Popen(['powercfg', '-setactive', GUID], shell=True,
-                         creationflags=subprocess.CREATE_NO_WINDOW, stderr=STDOUT)
+        sp.Popen(['powercfg', '-setactive', GUID], shell=True,
+                 creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
 
     def apply_plan(self, plan):
         current_plan = plan['name']

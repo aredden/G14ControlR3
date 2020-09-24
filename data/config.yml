@@ -6,13 +6,14 @@ long_notification_time: 5
 check_power_every: 10 # Seconds in between checks to get the battery/ac status
 default_gaming_plan: null # Example: "Extreme"
 default_gaming_plan_games: null # Example list: ["7zFM.exe", "notepad++.exe"]
-default_starting_plan: "Silent (low-speed fan)"
-default_ac_plan: "Silent (low-speed fan)"
-default_dc_plan: "Silent (battery)"
-default_power_plan: "Balanced"
-alt_power_plan: "High performance"
+default_starting_plan: "Silent (low-speed fan)" # G14control plan
+default_ac_plan: "Silent (low-speed fan)" # G14control plan
+default_dc_plan: "Silent (battery)" # G14control plan
+default_power_plan: "Balanced" # Windows Plan
+alt_power_plan: "High performance" # Windows Plan
+power_switch_enabled: false # Automatically switch power plan to dc_plan when not on power cable
 temp_dir: 'C:\temp\' # MUST END with "\"!!
-rog_key: null
+rog_key: null # Rebind rog key to some executable ("C:\G14Control\G14Control.exe" for example) or null to keep as is.
 debug: true # true/false Don't change unless you know what you are doing!!!
 plans:
   - name: Silent (battery)
@@ -48,7 +49,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance
-    plan: performance
+    plan: windows
     cpu_curve: "30c:0%,40c:20%,50c:20%,60c:20%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:20%,50c:20%,60c:20%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 38000
@@ -56,7 +57,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance Plus
-    plan: performance
+    plan: windows
     cpu_curve: "30c:0%,40c:20%,50c:20%,60c:24%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:20%,50c:20%,60c:24%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 40000
@@ -64,7 +65,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Extreme
-    plan: turbo
+    plan: windows
     cpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     gpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     cpu_tdp: 45000

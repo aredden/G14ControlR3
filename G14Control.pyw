@@ -18,8 +18,8 @@ from pywinusb import hid
 from G14RunCommands import RunCommands
 from win10toast import ToastNotifier
 
-import pickle
-from io import FileIO
+# import pickle
+# from io import FileIO
 
 toaster = ToastNotifier()
 
@@ -74,6 +74,12 @@ def get_active_plan_map():
         active_plan_map = {x[1]: False for x in windows_plans}
         active_plan_map[current_windows_plan] = True
         return active_plan_map
+
+
+def get_windows_plan_map():
+    global windows_plans, windows_plan_map
+    windows_plan_map = {x[1]: x[0] for x in windows_plans}
+    return windows_plan_map
 
 
 def get_app_path():
@@ -159,7 +165,7 @@ def deactivate_powerswitching(should_notify=True):
 class power_check_thread(threading.Thread):
 
     def __init__(self):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
 
     def run(self):
         global auto_power_switch, ac, current_plan, default_ac_plan, default_dc_plan, config
@@ -198,38 +204,40 @@ class gaming_thread_impl(threading.Thread):
 
     def __init__(self, name):
         self.name = name
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
 
     def run(self):  # Checks if user specified games/programs are running, and sw`itches to user defined plan, then switches back once closed
-        global default_gaming_plan_games
+        global default_gaming_plan_games, run_gaming_thread
         previous_plan = None  # Define the previous plan to switch back to
-
-        while True:  # Continuously check every 10 seconds
-            output = os.popen('wmic process get description, processid').read()
-            process = output.split("\n")
-            processes = set(i.split(" ")[0] for i in process)
-            # List of user defined processes
-            targets = set(default_gaming_plan_games)
-            if processes & targets:  # Compare 2 lists, if ANY overlap, set game_running to true
-                game_running = True
-            else:
-                game_running = False
-            # If game is running and not on the desired gaming plan, switch to that plan
-            if game_running and current_plan != default_gaming_plan:
-                previous_plan = current_plan
-                for plan in config['plans']:
-                    if plan['name'] == default_gaming_plan:
-                        apply_plan(plan)
-                        notify(plan['name'])
-                        break
-            # If game is no longer running, and not on previous plan already (if set), then switch back to previous plan
-            if not game_running and previous_plan is not None and previous_plan != current_plan:
-                for plan in config['plans']:
-                    if plan['name'] == previous_plan:
-                        apply_plan(plan)
-                        break
-            # Check for programs every 10 sec
-            time.sleep(config['check_power_every'])
+        if auto_power_switch:
+            while run_gaming_thread:  # Continuously check every 10 seconds
+                output = os.popen(
+                    'wmic process get description, processid').read()
+                process = output.split("\n")
+                processes = set(i.split(" ")[0] for i in process)
+                # List of user defined processes
+                targets = set(default_gaming_plan_games)
+                if processes & targets:  # Compare 2 lists, if ANY overlap, set game_running to true
+                    game_running = True
+                else:
+                    game_running = False
+                # If game is running and not on the desired gaming plan, switch to that plan
+                if game_running and current_plan != default_gaming_plan:
+                    previous_plan = current_plan
+                    for plan in config['plans']:
+                        if plan['name'] == default_gaming_plan:
+                            apply_plan(plan)
+                            notify(plan['name'])
+                            break
+                # If game is no longer running, and not on previous plan already (if set), then switch back to previous plan
+                if not game_running and previous_plan is not None and previous_plan != current_plan:
+                    for plan in config['plans']:
+                        if plan['name'] == previous_plan:
+                            apply_plan(plan)
+                            notify(plan['name'])
+                            break
+                # Check for programs every 10 sec
+                time.sleep(config['check_power_every'])
 
     def raise_exception(self):
         thread_id = self.ident
@@ -293,9 +301,9 @@ def apply_plan(plan):
 def quit_app():
     global device, run_power_thread, run_gaming_thread, power_thread, gaming_thread
     # This will destroy the the tray icon gracefully.
-    with FileIO('./config.DAT', mode='w') as fileio:
-        pickle.dump(config, fileio)
-        fileio.close()
+    # with FileIO('./config.DAT', mode='w') as fileio:
+    #     pickle.dump(config, fileio)
+    #     fileio.close()
 
     run_power_thread = False
     run_gaming_thread = False
@@ -310,9 +318,9 @@ def quit_app():
         device.close()
     try:
         icon_app.stop()
-        sys.exit()
     except SystemExit:
         print('System Exit')
+        sys.exit()
 
 
 def apply_plan_deactivate_switching(plan):
@@ -323,8 +331,9 @@ def apply_plan_deactivate_switching(plan):
 
 
 def set_windows_plan(plan):
-    global active_plan_map, current_windows_plan, windows_plans
-    print(plan)
+    global active_plan_map, current_windows_plan, windows_plans, config
+    if config['debug']:
+        print(plan)
     active_plan_map[current_windows_plan] = False
     current_windows_plan = plan[1]
     active_plan_map[current_windows_plan] = True
@@ -360,9 +369,9 @@ def create_menu():  # This will create the menu in the tray app
         MenuItem("dGPU",
                  Menu(
                      MenuItem("dGPU ON", lambda: main_cmds.set_dgpu(True),
-                              checked=lambda menu_itm: (True if main_cmds.get_dgpu() else False)),
+                              checked=lambda menu_itm: (True if bool(main_cmds.get_dgpu()) else False)),
                      MenuItem("dGPU OFF", lambda: main_cmds.set_dgpu(False),
-                              checked=lambda menu_itm: (False if main_cmds.get_dgpu() else True)),
+                              checked=lambda menu_itm: (False if bool(main_cmds.get_dgpu()) else True)),
                  )),
         MenuItem("Screen Refresh",
                  Menu(
@@ -464,7 +473,6 @@ def startup_checks():
 if __name__ == "__main__":
 
     device = None
-    frame = []
     G14dir = None
     get_app_path()
     config = load_config()  # Make the config available to the whole script
@@ -490,8 +498,9 @@ if __name__ == "__main__":
         # Instantiate command line tasks runners in G14RunCommands.py
         main_cmds = RunCommands(config, G14dir, app_GUID,
                                 dpp_GUID, notify, windows_plans, active_plan_map)
-        power_thread = power_check_thread()
-        power_thread.start()
+        if config['power_switch_enabled']:
+            power_thread = power_check_thread()
+            power_thread.start()
 
         if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None:
             gaming_thread = gaming_thread_impl('gaming-thread')
