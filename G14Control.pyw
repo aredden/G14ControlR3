@@ -455,7 +455,7 @@ def registry_remove():  # Removes G14Control.exe from the windows registry
 def startup_checks():
     global default_ac_plan, auto_power_switch
     # Only enable auto_power_switch on boot if default power plans are enabled (not set to null):
-    if default_ac_plan is not None and default_dc_plan is not None:
+    if default_ac_plan is not None and default_dc_plan is not None and config['power_switch_enabled'] is True:
         auto_power_switch = True
     else:
         auto_power_switch = False
@@ -502,7 +502,7 @@ if __name__ == "__main__":
             power_thread = power_check_thread()
             power_thread.start()
 
-        if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None:
+        if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None and config['power_switch_enabled'] is True:
             gaming_thread = gaming_thread_impl('gaming-thread')
             gaming_thread.start()
         default_gaming_plan = config['default_gaming_plan']

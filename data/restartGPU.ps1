@@ -1,3 +1,3 @@
-Disable-PnpDevice -InstanceId (Get-PnpDevice -FriendlyName *2060* -Status OK).InstanceId -Confirm:$false
+Disable-PnpDevice -InstanceId (Get-PnpDevice -FriendlyName *"NVIDIA Geforce"* -Status OK).InstanceId -Confirm:$false
 
-Enable-PnpDevice -InstanceId (Get-PnpDevice -FriendlyName *2060* ).InstanceId -Confirm:$false
+Enable-PnpDevice -InstanceId (Get-PnpDevice -FriendlyName *"NVIDIA Geforce"* ).InstanceId -Confirm:$false
