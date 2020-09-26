@@ -246,14 +246,16 @@ class RunCommands():
                  creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
 
     def edit_config(self):
-        path = ""
+        config_loc = ""
         if getattr(sys, 'frozen', False):
-            path = "./config.yml"
-        else:
-            path = "./data/config.yml"
+            # Set absolute path for config.yaml
+            config_loc = os.path.join(str(self.G14dir), "config.yml")
+        elif __file__:
+            # Set absolute path for config.yaml
+            config_loc = os.path.join(str(self.G14dir), "data/config.yml")
 
-        sp.Popen(['notepad', path], shell=True,
-                 creationflags=sp.CREATE_NO_WINDOW)
+            sp.Popen(['notepad', config_loc], shell=True,
+                     creationflags=sp.CREATE_NO_WINDOW)
 
     def apply_plan(self, plan):
         current_plan = plan['name']
