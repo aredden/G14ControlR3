@@ -11,13 +11,13 @@ default_ac_plan: "Silent (low-speed fan)" # G14control plan
 default_dc_plan: "Silent (battery)" # G14control plan
 default_power_plan: "Balanced" # Windows Plan
 alt_power_plan: "High performance" # Windows Plan
-power_switch_enabled: false # Automatically switch power plan to dc_plan when not on power cable
+power_switch_enabled: true # Automatically switch power plan to dc_plan when not on power cable
 temp_dir: 'C:\temp\' # MUST END with "\"!!
 rog_key: null # Rebind rog key to some executable ("C:\G14Control\G14Control.exe" for example) or null to keep as is.
-debug: true # true/false Don't change unless you know what you are doing!!!
+debug: false # true/false Don't change unless you know what you are doing!!!
 plans:
   - name: Silent (battery)
-    plan: windows
+    plan: silent
     cpu_curve: "30c:0%,40c:0%,50c:0%,60c:0%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:0%,50c:0%,60c:0%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 15000
@@ -25,7 +25,7 @@ plans:
     dgpu_enabled: false
     screen_hz: 60
   - name: Silent (fanless)
-    plan: windows
+    plan: silent
     cpu_curve: "30c:0%,40c:0%,50c:0%,60c:0%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:0%,50c:0%,60c:0%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 35000
@@ -33,7 +33,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Silent (low-speed fan)
-    plan: windows
+    plan: silent
     cpu_curve: "30c:0%,40c:0%,50c:20%,60c:20%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:0%,50c:20%,60c:20%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 35000
@@ -49,7 +49,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance
-    plan: windows
+    plan: performance
     cpu_curve: "30c:0%,40c:20%,50c:20%,60c:20%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:20%,50c:20%,60c:20%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 38000
@@ -57,7 +57,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Performance Plus
-    plan: windows
+    plan: turbo
     cpu_curve: "30c:0%,40c:20%,50c:20%,60c:24%,70c:31%,80c:49%,90c:56%,100c:56%"
     gpu_curve: "30c:0%,40c:20%,50c:20%,60c:24%,70c:34%,80c:51%,90c:61%,100c:61%"
     cpu_tdp: 40000
@@ -65,7 +65,7 @@ plans:
     dgpu_enabled: true
     screen_hz: 120
   - name: Extreme
-    plan: windows
+    plan: turbo
     cpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     gpu_curve: "30c:20%,40c:50%,50c:50%,60c:50%,70c:70%,80c:70%,90c:80%,100c:90%"
     cpu_tdp: 45000

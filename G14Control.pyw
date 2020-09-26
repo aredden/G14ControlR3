@@ -65,6 +65,8 @@ def get_windows_plans():
 def get_active_plan_map():
     """
     Cannot be run before @get_windows_plans()
+
+    Prepares active windows plans map for icon_app menu *checked* statuses.
     """
     global windows_plans, active_plan_map
     try:
@@ -90,17 +92,6 @@ def get_app_path():
         G14dir = os.path.dirname(os.path.realpath(sys.executable))
     elif __file__:
         G14dir = os.path.dirname(os.path.realpath(__file__))
-
-
-# Small utility to convert windows HEX format to a boolean.
-def parse_boolean(parse_string):
-    try:
-        if parse_string == "0x00000000":  # We will consider this as False
-            return False
-        else:  # We will consider this as True
-            return True
-    except Exception:
-        return None  # Just in case™
 
 
 def is_admin():
@@ -338,7 +329,7 @@ def set_windows_plan(plan):
     current_windows_plan = plan[1]
     active_plan_map[current_windows_plan] = True
     main_cmds.set_windows_and_active_plans(windows_plans, active_plan_map)
-    main_cmds.set_power_plan(plan[0])
+    main_cmds.set_power_plan(plan[0], do_notify=True)
 
 
 def power_options_menu():
@@ -395,6 +386,9 @@ def create_menu():  # This will create the menu in the tray app
                   MenuItem(plan['name'], lambda: apply_plan_deactivate_switching(plan),
                            checked=lambda menu_itm: True if current_plan == plan['name'] else False),
                   config['plans'])),  # Blame @dedo1911 for this. You can find him on github.
+        Menu.SEPARATOR,
+        MenuItem("Edit config", main_cmds.edit_config),
+        MenuItem("Reload config", reload_config),
         Menu.SEPARATOR,
         MenuItem("Quit", quit_app)  # This to close the app, we will need it.
     )
@@ -470,6 +464,59 @@ def startup_checks():
         registry_remove()
 
 
+def reload_config():
+    global config, windows_plans, current_windows_plan, auto_power_switch, default_ac_plan, default_dc_plan
+    global default_gaming_plan, default_gaming_plan_games, main_cmds, power_thread, gaming_thread, device
+    config = load_config()
+    windows_plans = get_windows_plans()
+    windows_plan_map = get_windows_plan_map()
+    get_power_plans()
+    deactivate_powerswitching(False)
+    current_windows_plan = config['default_power_plan']
+
+    current_plan = config['default_starting_plan']
+    default_ac_plan = config['default_ac_plan']
+    default_dc_plan = config['default_dc_plan']
+    deactivate_powerswitching(False)
+    if default_ac_plan is not None and default_dc_plan is not None and config['power_switch_enabled'] is True:
+        auto_power_switch = True
+    else:
+        auto_power_switch = False
+    active_plan_map = get_active_plan_map()
+
+    main_cmds = RunCommands(config, G14dir, app_GUID,
+                            dpp_GUID, notify, windows_plans, active_plan_map)
+
+    if config['power_switch_enabled']:
+        power_thread = power_check_thread()
+        power_thread.start()
+
+    if config['default_gaming_plan'] is not None and config['default_gaming_plan_games'] is not None and config['power_switch_enabled'] is True:
+        gaming_thread = gaming_thread_impl('gaming-thread')
+        gaming_thread.start()
+    default_gaming_plan = config['default_gaming_plan']
+    default_gaming_plan_games = config['default_gaming_plan_games']
+    if device is not None:
+        device.close()
+    if config['rog_key'] != None:
+        filter = hid.HidDeviceFilter(vendor_id=0x0b05, product_id=0x1866)
+        hid_device = filter.get_devices()
+        for i in hid_device:
+            if str(i).find("col01"):
+                device = i
+                device.open()
+                device.set_raw_data_handler(readData)
+
+    start_plan = {}
+    for plan in config['plans']:
+        if current_plan == plan['name']:
+            start_plan = plan
+            break
+
+    main_cmds.apply_plan(start_plan)
+    main_cmds.set_power_plan(windows_plan_map[current_windows_plan])
+
+
 if __name__ == "__main__":
 
     device = None
@@ -498,6 +545,7 @@ if __name__ == "__main__":
         # Instantiate command line tasks runners in G14RunCommands.py
         main_cmds = RunCommands(config, G14dir, app_GUID,
                                 dpp_GUID, notify, windows_plans, active_plan_map)
+
         if config['power_switch_enabled']:
             power_thread = power_check_thread()
             power_thread.start()
@@ -524,6 +572,14 @@ if __name__ == "__main__":
         icon_app.icon = create_icon()  # This will set the icon itself (the graphical icon)
         icon_app.menu = create_menu()  # This will create the menu
 
+        start_plan = {}
+        for plan in config['plans']:
+            if current_plan == plan['name']:
+                start_plan = plan
+                break
+        windows_plan_map = get_windows_plan_map()
+        main_cmds.set_power_plan(windows_plan_map[current_windows_plan])
+        main_cmds.apply_plan(start_plan)
         icon_app.run()  # This runs the icon. Is single threaded, blocking.
     else:  # Re-run the program with admin rights
         ctypes.windll.shell32.ShellExecuteW(

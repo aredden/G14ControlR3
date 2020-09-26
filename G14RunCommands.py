@@ -1,6 +1,8 @@
 
 import os
 import subprocess as sp
+import subprocess
+import sys
 import time
 import re
 from subprocess import STDOUT
@@ -18,6 +20,9 @@ class RunCommands():
         self.active_plan_map = active_plan_map
         self.windows_plan_map = {
             name: guid for guid, name in iter(windows_plans)}
+        self.reverse_windows_plan_map = {
+            guid: name for guid, name in iter(windows_plans)
+        }
 
     def set_windows_and_active_plans(self, winplns, activeplns):
         self.active_plan_map = activeplns
@@ -200,16 +205,15 @@ class RunCommands():
     def set_atrofac(self, asus_plan, cpu_curve=None, gpu_curve=None):
         config = self.config
         atrofac = str(os.path.join(config['temp_dir'] + "atrofac-cli.exe"))
-        cmdargs = ""
         if cpu_curve is not None and gpu_curve is not None:
             cmdargs = atrofac + " fan --cpu " + cpu_curve + \
-                " --gpu " + gpu_curve
+                " --gpu " + gpu_curve + " --plan " + asus_plan
         elif cpu_curve is not None and gpu_curve is None:
-            cmdargs = atrofac + " fan --cpu " + cpu_curve
+            cmdargs = atrofac + " fan --cpu " + cpu_curve + " --plan " + asus_plan
         elif cpu_curve is None and gpu_curve is not None:
-            cmdargs = atrofac + " fan --gpu " + gpu_curve
+            cmdargs = atrofac + " fan --gpu " + gpu_curve + " --plan " + asus_plan
         else:
-            cmdargs = ""
+            cmdargs = atrofac + " --plan " + asus_plan
         result = sp.check_output(cmdargs, shell=True,
                                  creationflags=sp.CREATE_NO_WINDOW)
         if self.config['debug']:
@@ -226,17 +230,30 @@ class RunCommands():
             if self.config['debug']:
                 print(result)
 
-    def set_power_plan(self, GUID):
+    def set_power_plan(self, GUID, do_notify=False):
         print("setting power plan GUID to: ", GUID)
         result = sp.check_output(
             ["powercfg", "/s", GUID], shell=True, creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
         if self.config['debug']:
             print('Set power result (good if just b\'\'): ', result)
+        if do_notify:
+            self.notify("Switched windows plan to:\n" +
+                        self.reverse_windows_plan_map[GUID])
 
     def finalize_powercfg_chg(self, GUID):
         time.sleep(.25)
         sp.Popen(['powercfg', '-setactive', GUID], shell=True,
                  creationflags=sp.CREATE_NO_WINDOW, stderr=STDOUT)
+
+    def edit_config(self):
+        path = ""
+        if getattr(sys, 'frozen', False):
+            path = "./config.yml"
+        else:
+            path = "./data/config.yml"
+
+        sp.Popen(['notepad', path], shell=True,
+                 creationflags=sp.CREATE_NO_WINDOW)
 
     def apply_plan(self, plan):
         current_plan = plan['name']

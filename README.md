@@ -13,7 +13,7 @@ It does combine all the option offered from other utilities into one, single, co
 
 #### What does it do?
 
-G14Control (you can even rename it) can control the current ASUS Power plan, Fan curve, Processor Boost Mode, Processor TDP, dGPU Activation and Screen refresh rate to your needs with a simple right click on the Windows taskbar. You can configure all the presets (and add new ones too) from the `config.yml` file.
+G14Control (you can even rename it) can control the current ASUS Power plan, Fan curve, Processor Boost Mode, Processor TDP, dGPU Activation and Screen refresh rate to your needs with a simple right click on the Windows taskbar. You can configure all the presets (and add new ones too) from the `config.yml` file via directly editing it during runtime using the `Edit config` button (which opens config.yml) and then pressing the `Reload config` button, or with your editor of choice from explorer.
 
 #### What about Linux?
 
