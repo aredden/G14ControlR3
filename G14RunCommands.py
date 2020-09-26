@@ -254,8 +254,8 @@ class RunCommands():
             # Set absolute path for config.yaml
             config_loc = os.path.join(str(self.G14dir), "data/config.yml")
 
-            sp.Popen(['notepad', config_loc], shell=True,
-                     creationflags=sp.CREATE_NO_WINDOW)
+        sp.Popen(['notepad', config_loc], shell=True,
+                 creationflags=sp.CREATE_NO_WINDOW)
 
     def apply_plan(self, plan):
         current_plan = plan['name']

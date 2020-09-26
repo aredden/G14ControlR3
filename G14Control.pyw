@@ -92,6 +92,7 @@ def get_app_path():
         G14dir = os.path.dirname(os.path.realpath(sys.executable))
     elif __file__:
         G14dir = os.path.dirname(os.path.realpath(__file__))
+    return G14Dir
 
 
 def is_admin():
@@ -521,7 +522,7 @@ if __name__ == "__main__":
 
     device = None
     G14dir = None
-    get_app_path()
+    G14Dir = get_app_path()
     config = load_config()  # Make the config available to the whole script
     dpp_GUID = None
     app_GUID = None
