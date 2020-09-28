@@ -16,3 +16,4 @@ psutil==5.7.0
 cx_Freeze==6.1
 keyboard==0.13.5
 pywinusb==0.4.2
+win10toast==0.9
