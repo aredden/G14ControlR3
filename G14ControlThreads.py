@@ -2,7 +2,6 @@ import threading
 import psutil
 import ctypes
 import time
-from threading import Thread
 from G14RunCommands import RunCommands
 
 

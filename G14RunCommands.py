@@ -1,6 +1,5 @@
 import os
 import subprocess as sp
-import subprocess
 import sys
 import time
 import re
