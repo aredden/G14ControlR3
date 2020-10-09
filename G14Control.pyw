@@ -16,17 +16,12 @@ from G14Utils import (
     get_app_path,
     rog_keyset,
     startup_checks,
+    get_active_windows_plan,
 )
 from win10toast import ToastNotifier
 
 toaster = ToastNotifier()
-
 main_cmds: RunCommands
-
-run_gaming_thread = True
-run_power_thread = True
-power_thread = None
-gaming_thread = None
 
 
 def activate_powerswitching():
@@ -45,10 +40,10 @@ def activate_powerswitching():
         and data.default_gaming_plan_games is not None
     ):
         if data.gaming_thread is None:
-            data.gaming_thread = gaming_thread_impl()
+            data.gaming_thread = gaming_check_thread()
             data.gaming_thread.start()
         elif not data.gaming_thread.is_alive():
-            data.gaming_thread = gaming_thread_impl()
+            data.gaming_thread = gaming_check_thread()
             data.gaming_thread.start()
 
 
@@ -56,7 +51,7 @@ def deactivate_powerswitching(should_notify=True):
     global data
     data.auto_power_switch = False
     if data.power_thread is not None and data.power_thread.is_alive():
-        power_thread.kill()
+        data.power_thread.kill()
     if data.gaming_thread is not None and data.gaming_thread.is_alive():
         data.gaming_thread.kill()
 
@@ -109,7 +104,7 @@ class power_check_thread(threading.Thread):
             print("Exception raise failure")
 
 
-class gaming_thread_impl(threading.Thread):
+class gaming_check_thread(threading.Thread):
     def __init__(
         self,
     ):
@@ -254,7 +249,8 @@ def power_options_menu():
                 MenuItem(
                     winplan[1],
                     lambda: set_windows_plan(winplan),
-                    checked=lambda menu_itm: data.active_plan_map[winplan[1]],
+                    checked=lambda menu_itm: winplan[1]
+                    == list(get_active_windows_plan().keys())[0],
                 )
             ),
             data.windows_plans,
@@ -394,7 +390,7 @@ def reload_config(icon_app, device):
         and data.config["default_gaming_plan_games"] is not None
         and data.config["power_switch_enabled"] is True
     ):
-        data.gaming_thread = gaming_thread_impl()
+        data.gaming_thread = gaming_check_thread()
         data.gaming_thread.start()
 
     if device is not None:
@@ -434,7 +430,7 @@ def startup(config, icon_app):
         and data.default_gaming_plan_games is not None
         and data.power_switch_enabled
     ):
-        data.gaming_thread = gaming_thread_impl()
+        data.gaming_thread = gaming_check_thread()
         data.gaming_thread.start()
 
     device = rog_keyset(config)

@@ -136,6 +136,15 @@ def get_windows_plans():
     return windows_power_options
 
 
+def get_active_windows_plan():
+    plan_tuple = re.findall(
+        r"([0-9a-f\-]{36}) *\((.*)\)",
+        os.popen("powercfg /GETACTIVESCHEME").read(),
+    )
+    plan = {plan_tuple[0][1]: plan_tuple[0][0]}
+    return plan
+
+
 def get_active_plan_map(windows_plans, current_windows_plan):
     """
     Cannot be run before @get_windows_plans()
