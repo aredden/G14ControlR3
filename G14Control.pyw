@@ -67,12 +67,20 @@ class power_check_thread(threading.Thread):
         self,
     ):
         threading.Thread.__init__(self, daemon=True)
+        print("power thread started...")
 
     def run(self):
         global data
+        debug = data.config["debug"]
         # Only run while loop on startup if auto_power_switch is On (True)
+        if debug:
+            print("power thread running...")
         if data.auto_power_switch:
+            if debug:
+                print("power switch is enabled...")
             while data.run_power_thread:
+                if debug:
+                    print(" run power thread is true")
                 # Check to user hasn't disabled auto_power_switch
                 # (i.e. by manually switching plans)
                 if data.auto_power_switch:
@@ -80,13 +88,21 @@ class power_check_thread(threading.Thread):
                         psutil.sensors_battery().power_plugged
                     )  # Get the current AC power status
                     # If on AC power, and not on the default_ac_plan, switch to that plan
-                    if ac and data.current_plan != data.default_ac_plan:
+                    if (
+                        ac
+                        and data.current_plan != data.default_ac_plan
+                        and not data.game_running
+                    ):
                         for plan in data.config["plans"]:
                             if plan["name"] == data.default_ac_plan:
                                 apply_plan(plan)
                                 break
                     # If on DC power, and not on the default_dc_plan, switch to that plan
-                    if not ac and data.current_plan != data.default_dc_plan:
+                    if (
+                        not ac
+                        and data.current_plan != data.default_dc_plan
+                        and not data.game_running
+                    ):
                         for plan in data.config["plans"]:
                             if plan["name"] == data.default_dc_plan:
                                 apply_plan(plan)
@@ -128,11 +144,14 @@ class gaming_check_thread(threading.Thread):
                     if (
                         processes & targets
                     ):  # Compare 2 lists, if ANY overlap, set game_running to true
-                        game_running = True
+                        data.game_running = True
                     else:
-                        game_running = False
+                        data.game_running = False
                     # If game is running and not on the desired gaming plan, switch to that plan
-                    if game_running and data.current_plan != data.default_gaming_plan:
+                    if (
+                        data.game_running
+                        and data.current_plan != data.default_gaming_plan
+                    ):
                         previous_plan = data.current_plan
                         for plan in data.config["plans"]:
                             if plan["name"] == data.default_gaming_plan:
@@ -142,7 +161,7 @@ class gaming_check_thread(threading.Thread):
                     # If game is no longer running, and not on previous plan
                     #  already (if set), then switch back to previous plan
                     if (
-                        not game_running
+                        not data.game_running
                         and previous_plan is not None
                         and previous_plan != data.current_plan
                     ):
@@ -154,10 +173,12 @@ class gaming_check_thread(threading.Thread):
                     # Check for programs every 10 sec
                 time.sleep(config["check_power_every"])
         else:
+            data.game_running = False
             self.kill()
 
     def kill(self):
         thread_id = self.ident
+        data.game_running = False
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
             thread_id, ctypes.py_object(SystemExit)
         )
@@ -204,14 +225,16 @@ def quit_app():
     if data.power_thread is not None and data.power_thread.is_alive():
         data.power_thread.kill()
         while data.power_thread.isAlive():
-            print("Waiting for power thread to die...")
+            if data.config["debug"]:
+                print("Waiting for power thread to die...")
             time.sleep(0.25)
         print("Power thread was alive, and now is dead.")
 
     if data.gaming_thread is not None and data.gaming_thread.is_alive():
         data.gaming_thread.kill()
         while data.gaming_thread.isAlive():
-            print("Waiting for power thread to die...")
+            if data.config["debug"]:
+                print("Waiting for gaming thread to die...")
             time.sleep(0.25)
         print("Gaming thread was alive, and now is dead.")
     if device is not None:
@@ -399,8 +422,8 @@ def create_menu(
 
 def reload_config(icon_app, device):
     global data
-    data = G14_Data()
     deactivate_powerswitching(False)
+    data = G14_Data()
     if (
         data.default_ac_plan is not None
         and data.default_dc_plan is not None
@@ -412,6 +435,7 @@ def reload_config(icon_app, device):
 
     if data.auto_power_switch and data.config["power_switch_enabled"]:
         data.power_thread = power_check_thread()
+        data.run_power_thread = True
         data.power_thread.start()
 
     if (
@@ -420,6 +444,7 @@ def reload_config(icon_app, device):
         and data.config["power_switch_enabled"] is True
     ):
         data.gaming_thread = gaming_check_thread()
+        data.run_gaming_thread = True
         data.gaming_thread.start()
 
     if device is not None:
@@ -452,6 +477,7 @@ def startup(config, icon_app):
 
     if data.power_switch_enabled:
         data.power_thread = power_check_thread()
+        data.run_power_thread = True
         data.power_thread.start()
 
     if (
@@ -460,6 +486,7 @@ def startup(config, icon_app):
         and data.power_switch_enabled
     ):
         data.gaming_thread = gaming_check_thread()
+        data.run_gaming_thread = True
         data.gaming_thread.start()
 
     device = rog_keyset(config)

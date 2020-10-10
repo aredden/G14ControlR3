@@ -68,7 +68,7 @@ class G14_Data:
         self.power_switch_enabled = self.config["power_switch_enabled"]
         self.default_gaming_plan = self.config["default_gaming_plan"]
         self.default_gaming_plan_games = self.config["default_gaming_plan_games"]
-        self.auto_power_switch = self.power_switch_enabled
+        self.auto_power_switch = bool(self.power_switch_enabled)
         self.rog_key = self.config["rog_key"]
         self.current_plan = self.default_starting_plan
         self.current_windows_plan = self.default_power_plan
@@ -83,6 +83,7 @@ class G14_Data:
         )
         self.registry_key_loc = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
+        self.game_running = False
         self.run_gaming_thread = None
         self.run_power_thread = None
         self.power_thread = None
