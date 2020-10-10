@@ -1,3 +1,4 @@
+import re
 from G14Data import G14_Data, load_config
 import ctypes
 import os
@@ -220,6 +221,34 @@ def quit_app():
     except SystemExit:
         print("System Exit")
         sys.exit()
+
+
+class Windows_Plan_Check(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self, daemon=True)
+
+    def run(self):
+        global data
+        while True:
+            plan_tuple = re.findall(
+                r"([0-9a-f\-]{36}) *\((.*)\)",
+                os.popen("powercfg /GETACTIVESCHEME").read(),
+            )
+            if data.current_windows_plan != plan_tuple[0][1]:
+                data.update_win_plan(plan_tuple[0][1])
+                data.current_windows_plan = plan_tuple[0][1]
+                global icon_app
+                icon_app.update_menu()
+            time.sleep(5)
+
+    def kill(self):
+        thread_id = self.ident
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            thread_id, ctypes.py_object(SystemExit)
+        )
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print("Exception raise failure")
 
 
 def apply_plan_deactivate_switching(plan):
@@ -450,6 +479,7 @@ def startup(config, icon_app):
             start_plan = plan
             break
     data.main_cmds.set_power_plan(data.windows_plan_map[data.current_windows_plan])
+    Windows_Plan_Check().start()
     apply_plan(start_plan)
     icon_app.run()  # This runs the icon. Is single threaded, blocking.
 

@@ -1,3 +1,4 @@
+from G14Utils import get_active_windows_plan
 import os
 import subprocess as sp
 import sys
@@ -80,15 +81,18 @@ class RunCommands:
             print(SET_DC_VAL)
 
     def set_boost(self, state, notification=True):
+        """
+        Takes boost state as a boolean or integer value and modifies the boost
+        parameter of the current windows plan by modifying and then activating
+        the windows plan. The current hackish solution is to switch to another
+        windows plan and then switch back.
+
+        By default set_boost will cause a windows notification to appear
+        indicating the boost value after it is set, you can silence the
+        notification with the parameter notification=False.
+        """
         windows_plan_map = self.windows_plan_map
-        CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME")
-        pwr_guid = (
-            CURRENT_SCHEME.readlines()[0]
-            .rsplit(": ")[1]
-            .rsplit(" (")[0]
-            .lstrip("\n")
-            .replace(" ", "")
-        )  # Parse the GUID
+        pwr_guid = list(get_active_windows_plan().values())[0]
         switch_to = list(
             {val for key, val in windows_plan_map.items() if val != pwr_guid}
         )[0]
@@ -172,14 +176,14 @@ class RunCommands:
             _set_dgpu(2, DC)
             time.sleep(0.25)
             if notification is True:
-                self.notify("dGPU ENABLED")  # Inform the user
+                self.notify("dGPU set to performance.")  # Inform the user
         elif state is False:  # Deactivate dGPU
             _set_dgpu(0, AC)
             _set_dgpu(0, DC)
             time.sleep(0.25)
             os.system('"' + str(G14dir) + "\\restartGPUcmd.bat" + '"')
             if notification is True:
-                self.notify("dGPU DISABLED")  # Inform the user
+                self.notify("dGPU set to force power saver.")  # Inform the user
 
     def check_screen(
         self,
@@ -264,7 +268,7 @@ class RunCommands:
                 stderr=STDOUT,
             )
             if self.config["debug"]:
-                print(result)
+                print(result.decode("utf-8"))
 
     def set_power_plan(self, GUID, do_notify=False):
         print("setting power plan GUID to: ", GUID)
@@ -275,7 +279,7 @@ class RunCommands:
             stderr=STDOUT,
         )
         if self.config["debug"]:
-            print("Set power result (good if just b''): ", result)
+            print(result.decode("utf-8"))
         if do_notify:
             self.notify(
                 "Switched windows plan to:\n" + self.reverse_windows_plan_map[GUID]
