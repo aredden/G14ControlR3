@@ -13,6 +13,7 @@ import resources
 from G14RunCommands import RunCommands
 from G14Utils import (
     create_icon,
+    get_g14plan,
     is_admin,
     get_app_path,
     rog_keyset,
@@ -222,21 +223,21 @@ def quit_app():
 
     data.run_power_thread = False
     data.run_gaming_thread = False
-    if data.power_thread is not None and data.power_thread.is_alive():
-        data.power_thread.kill()
-        while data.power_thread.isAlive():
-            if data.config["debug"]:
-                print("Waiting for power thread to die...")
-            time.sleep(0.25)
-        print("Power thread was alive, and now is dead.")
+    # if data.power_thread is not None and data.power_thread.is_alive():
+    #     data.power_thread.kill()
+    #     while data.power_thread.isAlive():
+    #         if data.config["debug"]:
+    #             print("Waiting for power thread to die...")
+    #         time.sleep(0.25)
+    #     print("Power thread was alive, and now is dead.")
 
-    if data.gaming_thread is not None and data.gaming_thread.is_alive():
-        data.gaming_thread.kill()
-        while data.gaming_thread.isAlive():
-            if data.config["debug"]:
-                print("Waiting for gaming thread to die...")
-            time.sleep(0.25)
-        print("Gaming thread was alive, and now is dead.")
+    # if data.gaming_thread is not None and data.gaming_thread.is_alive():
+    #     data.gaming_thread.kill()
+    #     while data.gaming_thread.isAlive():
+    #         if data.config["debug"]:
+    #             print("Waiting for gaming thread to die...")
+    #         time.sleep(0.25)
+    #     print("Gaming thread was alive, and now is dead.")
     if device is not None:
         device.close()
     try:
@@ -253,13 +254,33 @@ class Windows_Plan_Check(threading.Thread):
     def run(self):
         global data
         while True:
+            requires_reload = False
+
+            # Check for windows plan changes
             plan_tuple = re.findall(
                 r"([0-9a-f\-]{36}) *\((.*)\)",
                 os.popen("powercfg /GETACTIVESCHEME").read(),
             )
             if data.current_windows_plan != plan_tuple[0][1]:
+                print("windows plan")
                 data.update_win_plan(plan_tuple[0][1])
                 data.current_windows_plan = plan_tuple[0][1]
+                requires_reload = True
+
+            # Check for boost changes
+            current = get_g14plan(data.current_plan, data.config)
+            boost = data.main_cmds.get_boost()[-1]
+            if int(boost) is not current["boost"]:
+                print(boost, current["boost"], "Boost")
+                requires_reload = True
+
+            # Check for gpu changes
+            if current["dgpu_enabled"] is not data.main_cmds.get_dgpu():
+                print(current["dgpu_enabled"], data.main_cmds.get_dgpu(), "DGPU")
+                requires_reload = True
+
+            # If reload required, update menu.
+            if requires_reload:
                 global icon_app
                 icon_app.update_menu()
             time.sleep(5)

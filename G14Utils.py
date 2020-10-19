@@ -182,6 +182,13 @@ def get_windows_theme():
     return value  # 1 for light theme, 0 for dark theme
 
 
+def get_g14plan(current, config):
+    plans = config["plans"]
+    for p in plans:
+        if p["name"] == current:
+            return p
+
+
 def create_icon(config):
     if (
         get_windows_theme() == 0

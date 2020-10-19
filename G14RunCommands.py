@@ -40,10 +40,7 @@ class RunCommands:
 
     def get_boost(self):
         # I know, it's ugly, but no other way to do that from py.
-        current_pwr = os.popen("powercfg /GETACTIVESCHEME")
-        pwr_guid = (
-            current_pwr.readlines()[0].rsplit(": ")[1].rsplit(" (")[0].lstrip("\n")
-        )  # Parse the GUID
+        pwr_guid = list(get_active_windows_plan().values())[0]  # Parse the GUID
         SUB_PROCESSOR = " 54533251-82be-4824-96c1-47b60b740d00"
         PERFBOOSTMODE = " be337238-0d82-4146-a960-4f3749d470c7"
         # Let's get the boost option in the currently active power scheme
@@ -58,14 +55,11 @@ class RunCommands:
 
     def do_boost(self, state):
         # Just to be safe, let's get the current power scheme
-        CURRENT_SCHEME = os.popen("powercfg /GETACTIVESCHEME")
         SUB_PROCESSOR = "54533251-82be-4824-96c1-47b60b740d00"
         PERFBOOSTMODE = "be337238-0d82-4146-a960-4f3749d470c7"
         set_ac = "powercfg /setacvalueindex"
         set_dc = "powercfg /setdcvalueindex"
-        pwr_guid = (
-            CURRENT_SCHEME.readlines()[0].rsplit(": ")[1].rsplit(" (")[0].lstrip("\n")
-        )  # Parse the GUID
+        pwr_guid = list(get_active_windows_plan().values())[0]
         if state is False:
             state = 0
         SET_AC_VAL = "{0} {1} {2} {3} {4}".format(
@@ -128,16 +122,11 @@ class RunCommands:
 
     def get_dgpu(self):
         # Get active windows power scheme
-        current_pwr = os.popen("powercfg /GETACTIVESCHEME")
-        CURRENT_GUID = re.findall(r"[0-9a-fA-F\-]{36}", current_pwr.read())[
-            0
-        ]  # Parse the GUID
+        pwr_guid = list(get_active_windows_plan().values())[0]  # Parse the GUID
         SW_DYNAMC_GRAPHICS = "e276e160-7cb0-43c6-b20b-73f5dce39954"
         GLOBAL_SETTINGS = "a1662ab2-9d34-4e53-ba8b-2639b9e20857"
         pwr_settings = os.popen(
-            " ".join(
-                ["powercfg", "/q", CURRENT_GUID, SW_DYNAMC_GRAPHICS, GLOBAL_SETTINGS]
-            )
+            " ".join(["powercfg", "/q", pwr_guid, SW_DYNAMC_GRAPHICS, GLOBAL_SETTINGS])
         )  # Let's get the dGPU status in the current power scheme
         output = pwr_settings.readlines()  # We save the output to parse it afterwards
         # Convert to boolean for "On/Off"
@@ -150,8 +139,7 @@ class RunCommands:
     def set_dgpu(self, state, notification=True):
         G14dir = self.G14dir
         # Just to be safe, let's get the current power scheme
-        current_pwr = os.popen("powercfg /GETACTIVESCHEME")
-        CURRENT_GUID = re.findall(r"[0-9a-fA-F\-]{36}", current_pwr.read())[0]
+        pwr_guid = list(get_active_windows_plan().values())[0]
         SW_DYNAMC_GRAPHICS = "e276e160-7cb0-43c6-b20b-73f5dce39954"
         GLOBAL_SETTINGS = "a1662ab2-9d34-4e53-ba8b-2639b9e20857"
         AC = "/setacvalueindex"
@@ -163,7 +151,7 @@ class RunCommands:
                     [
                         "powercfg",
                         AC_DC,
-                        CURRENT_GUID,
+                        pwr_guid,
                         SW_DYNAMC_GRAPHICS,
                         GLOBAL_SETTINGS,
                         str(SETTING),
