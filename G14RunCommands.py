@@ -99,12 +99,8 @@ class RunCommands:
             self.do_boost(state)
             if notification is True:
                 self.notify("Boost ENABLED")  # Inform the user
-        elif state is False:  # Deactivate boost
-            self.do_boost(state)
-            if notification is True:
-                self.notify("Boost DISABLED")  # Inform the user
-        elif state == 0:
-            self.do_boost(state)
+        elif state is False or state == 0:  # Deactivate boost
+            self.do_boost(False)
             if notification is True:
                 self.notify("Boost DISABLED")  # Inform the user
         elif state == 4:
@@ -239,24 +235,39 @@ class RunCommands:
             cmdargs = atrofac + " fan --gpu " + gpu_curve + " --plan " + asus_plan
         else:
             cmdargs = atrofac + " --plan " + asus_plan
-        result = sp.check_output(cmdargs, shell=True, creationflags=sp.CREATE_NO_WINDOW)
-        if self.config["debug"]:
-            print(result)
+        try:
+            result = sp.check_output(
+                cmdargs, shell=True, creationflags=sp.CREATE_NO_WINDOW
+            )
+            if self.config["debug"]:
+                print(result)
+        except Exception:
+            if self.config["debug"]:
+                print("Error setting fan speeds.")
 
-    def set_ryzenadj(self, tdp):
+    def set_ryzenadj(self, tdp, attempts=3):
         config = self.config
         ryzenadj = str(os.path.join(config["temp_dir"] + "ryzenadj.exe"))
         if tdp is None:
             pass
         else:
-            result = sp.check_output(
-                ryzenadj + " -a " + str(tdp) + " -b " + str(tdp),
-                shell=True,
-                creationflags=sp.CREATE_NO_WINDOW,
-                stderr=STDOUT,
-            )
-            if self.config["debug"]:
-                print(result.decode("utf-8"))
+            try:
+                result = sp.check_output(
+                    ryzenadj + " -a " + str(tdp) + " -b " + str(tdp),
+                    shell=True,
+                    creationflags=sp.CREATE_NO_WINDOW,
+                )
+                if self.config["debug"]:
+                    print(result.decode("utf-8"))
+            except Exception:
+                print("There was an error applying ryzenadj\n Attempt #" + attempts)
+                if attempts == 0:
+                    self.notify(
+                        "There was an error apply ryzenadj TDP power settings...\n"
+                        + "This is relatively normal."
+                    )
+                else:
+                    self.set_ryzenadj(tdp, attempts - 1)
 
     def set_power_plan(self, GUID, do_notify=False):
         print("setting power plan GUID to: ", GUID)

@@ -223,21 +223,6 @@ def quit_app():
 
     data.run_power_thread = False
     data.run_gaming_thread = False
-    # if data.power_thread is not None and data.power_thread.is_alive():
-    #     data.power_thread.kill()
-    #     while data.power_thread.isAlive():
-    #         if data.config["debug"]:
-    #             print("Waiting for power thread to die...")
-    #         time.sleep(0.25)
-    #     print("Power thread was alive, and now is dead.")
-
-    # if data.gaming_thread is not None and data.gaming_thread.is_alive():
-    #     data.gaming_thread.kill()
-    #     while data.gaming_thread.isAlive():
-    #         if data.config["debug"]:
-    #             print("Waiting for gaming thread to die...")
-    #         time.sleep(0.25)
-    #     print("Gaming thread was alive, and now is dead.")
     if device is not None:
         device.close()
     try:
@@ -540,7 +525,7 @@ if __name__ == "__main__":
     # Initialize the icon app and set its name
     icon_app: Icon = pystray.Icon(config["app_name"])
     # If running as admin or in debug mode, launch program
-    if is_admin() or config["debug"]:
+    if is_admin():
         startup(config, icon_app)
     else:  # Re-run the program with admin rights
         ctypes.windll.shell32.ShellExecuteW(

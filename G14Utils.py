@@ -9,24 +9,26 @@ import os
 import subprocess as sp
 
 
-# Adds G14Control.exe to the windows registry to start on boot/login
-def registry_add(registry_key_loc, G14dir):
-    G14exe = "G14Control.exe"
-    G14dir = str(G14dir)
-    G14fileloc = os.path.join(G14dir, G14exe)
-    G14Key = winreg.OpenKey(
-        winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_SET_VALUE
-    )
-    winreg.SetValueEx(G14Key, "G14Control", 1, winreg.REG_SZ, G14fileloc)
+# # Adds G14Control.exe to the windows registry to start on boot/login
+# def registry_add(registry_key_loc, G14dir):
+#     G14exe = "G14Control.exe"
+#     G14dir = str(G14dir)
+#     G14fileloc = os.path.join(G14dir, G14exe)
+#     G14Key = winreg.OpenKey(
+#         winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_SET_VALUE
+#     )
+#     winreg.SetValueEx(G14Key, "G14Control", 1, winreg.REG_SZ, G14fileloc)
+#     winreg.CloseKey(G14Key)
 
 
-# Removes G14Control.exe from the windows registry
-def registry_remove(registry_key_loc, G14dir):
-    G14dir = str(G14dir)
-    G14Key = winreg.OpenKey(
-        winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_ALL_ACCESS
-    )
-    winreg.DeleteValue(G14Key, "G14Control")
+# # Removes G14Control.exe from the windows registry
+# def registry_remove(registry_key_loc, G14dir):
+#     G14dir = str(G14dir)
+#     G14Key = winreg.OpenKey(
+#         winreg.HKEY_CURRENT_USER, registry_key_loc, 0, winreg.KEY_ALL_ACCESS
+#     )
+#     winreg.DeleteValue(G14Key, "G14Control")
+#     winreg.CloseKey(G14Key)
 
 
 # Checks if G14Control registry entry exists already
@@ -70,20 +72,20 @@ def startup_checks(data):
     # Adds registry entry if enabled in config, but not when in debug mode.
     # if not registry entry is already existing,
     # removes registry entry if registry exists but setting is disabled:
-    reg_run_enabled = registry_check(data.registry_key_loc, G14dir)
+    # reg_run_enabled = registry_check(data.registry_key_loc, G14dir)
 
-    if (
-        data.config["start_on_boot"]
-        and not data.config["debug"]
-        and not reg_run_enabled
-    ):
-        registry_add(data.registry_key_loc, G14dir)
-    if (
-        not data.config["start_on_boot"]
-        and not data.config["debug"]
-        and reg_run_enabled
-    ):
-        registry_remove(data.registry_key_loc, data.G14dir)
+    # if (
+    #     data.config["start_on_boot"]
+    #     and not data.config["debug"]
+    #     and not reg_run_enabled
+    # ):
+    #     registry_add(data.registry_key_loc, G14dir)
+    # if (
+    #     not data.config["start_on_boot"]
+    #     and not data.config["debug"]
+    #     and reg_run_enabled
+    # ):
+    #     registry_remove(data.registry_key_loc, data.G14dir)
     return data.auto_power_switch
 
 
@@ -165,8 +167,10 @@ def get_windows_plan_map(windows_plans):
 def is_admin():
     try:
         # Returns true if the user launched the app as admin
+        val = ctypes.windll.shell32.IsUserAnAdmin()
+        print("is admin?:" + val)
         return ctypes.windll.shell32.IsUserAnAdmin()
-    except OSError or WindowsError:
+    except Exception:
         return False
 
 
@@ -179,6 +183,7 @@ def get_windows_theme():
     )
     # Taskbar (where icon is displayed) uses the 'System' light theme key. Index 0 is the value, index 1 is the type of key
     value = winreg.QueryValueEx(sub_key, "SystemUsesLightTheme")[0]
+    sub_key.Close()
     return value  # 1 for light theme, 0 for dark theme
 
 
