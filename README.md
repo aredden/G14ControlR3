@@ -2,6 +2,8 @@
 
 This is an upstream fork of https://github.com/thesacredmoocow/g14control-r2 which is an upstream fork of https://github.com/CappyT/g14control that has features and bug fixes that are not yet deemed stable for the official release, but that I have tested and are stable enough for my day-to-day use. There will be new EXEs bundled in the [releases](https://github.com/aredden/G14ControlR3/releases) section that will be released between official releases by me. For those that want the bleeding edge updates/testing branches (but testing and working).
 
+Some people have had issues with missing dependencies (errors saying they are missing MSVCP120.dll). This can be solved by installing Microsoft Visual C++ Redistributable 2013, version x86 and x64. Those can be installed here: https://www.microsoft.com/en-us/download/details.aspx?id=40784
+
 ## G14ControlR3
 
 ## A simple tray app to control Asus Zephyrus G14 Power options
